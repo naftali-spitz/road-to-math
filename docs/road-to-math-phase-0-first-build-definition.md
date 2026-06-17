@@ -6,41 +6,32 @@
 
 ## 1. Purpose of Phase 0
 
-Phase 0 defines the first real version of **Road to Math** that will be built.
+Phase 0 defines the first real playable Road to Math build.
 
-The master plan describes the full long-term product vision. Phase 0 narrows that vision into a clear first build boundary so development can start without scope drift.
+The master plan describes the long-term product vision. This document narrows that vision into a clear first build boundary so development can continue without scope drift.
 
-Phase 0 is not a task list, sprint plan, or implementation plan. It answers:
+Phase 0 must prove the core loop:
 
-> What exactly are we building first, what are we not building yet, and which product rules must not be broken?
+```text
+Player → Road → World → Level → Instinct → Practice/Rush → Attempts → Mastery → Unlock
+```
 
 ---
 
 ## 2. Core Build Decision
 
-Road to Math will be built **from zero**.
+Road to Math is built from zero.
 
-The existing Math Rush game is treated as a prototype and research reference only.
+The earlier Math Rush game remains useful as a prototype and research reference for:
 
-It may influence:
-
-- the feeling of Rush Mode
-- timing and pacing lessons
-- sound and animation preferences
+- Rush pacing
+- answer timing
+- sound/animation preferences
 - what felt fun
 - what felt annoying or messy
 - family play observations
 
-It should **not** be used as the foundation for:
-
-- architecture
-- database structure
-- routing
-- UI component hierarchy
-- local storage model
-- progression logic
-- player/session model
-- mastery engine
+It should not define the architecture, persistence model, progression logic, mastery engine, or Road to Math content structure.
 
 Reason:
 
@@ -50,14 +41,12 @@ Reason:
 
 ## 3. First Product Slice
 
-The first build should create a small but real Road to Math experience.
-
 The first product slice is:
 
 ```text
 Road to Arithmetic
-3 Worlds
-9 Levels
+4 Worlds
+18 Levels
 Practice Mode
 Rush Mode
 Player profile
@@ -67,63 +56,100 @@ Basic mastery calculation
 Level unlocks
 Simple progress screen
 Starter XP rewards
+Arithmetic Roadblock placeholder/mixed check
 ```
 
-The first version is not only a single quiz screen. It should already prove the core Road to Math structure:
-
-```text
-Player → Road → World → Level → Instinct → Practice/Rush → Attempts → Mastery → Unlock
-```
+The first version is not only a quiz screen. It should already prove the Road to Math structure and learning engine.
 
 ---
 
 ## 4. First Road Scope
 
-Only **Road to Arithmetic** is included in the first build.
+Only Road to Arithmetic is included in Phase 0.
 
-Road to Arithmetic is the foundation gate before Road to Algebra. It trains the basic number instincts Algebra depends on.
+Road to Arithmetic is the foundation gate before Road to Algebra. It trains basic number instincts Algebra depends on.
 
-### World 1 — Number Sense
+The important design correction is **spiral mastery**:
+
+```text
+Counting Step, Number Compare, Number Line, and Patterns are not one-time starter levels.
+They are reusable instincts that come back at harder difficulty bands.
+```
+
+Examples:
+
+```text
+Counting Step: whole numbers → negatives → fractions → decimals
+Number Compare: whole numbers → negatives → fractions → expressions
+Number Line: whole numbers → negatives → fractions → coordinates → graphs
+Patterns: skip counting → operation patterns → function tables
+```
+
+---
+
+## 5. Road to Arithmetic Level Plan
+
+### World 1 — Whole Number Instinct
 
 | Level | Name | Core Instinct | Main Question Formats |
 |------|------|---------------|-----------------------|
-| 1 | Quick Add | Combine small numbers quickly | Solve, Fill Blank, MC, True/False |
-| 2 | Quick Subtract | Understand subtraction as distance / removal | Solve, Fill Blank, MC, True/False |
-| 3 | Make Ten | Use 10 as an anchor for faster addition | Solve, Fill Blank, MC |
+| 1 | Count Forward / Backward | Counting step with whole numbers | Solve, Fill Blank, MC, True/False |
+| 2 | Whole Number Line | Numbers as positions and movement | Solve, Fill Blank, MC, True/False |
+| 3 | Compare Whole Numbers | Bigger/smaller/equal by value | Solve, Fill Blank, MC, True/False |
+| 4 | Whole Number Patterns | Continue a sequence by detecting the repeated rule | Solve, Fill Blank, MC, True/False |
 
-### World 2 — Core Operations
-
-| Level | Name | Core Instinct | Main Question Formats |
-|------|------|---------------|-----------------------|
-| 4 | Multiplication Facts | Recall and recognize core multiplication facts | Solve, Fill Blank, MC, True/False |
-| 5 | Division Facts | Division as inverse of multiplication | Solve, Fill Blank, MC, True/False |
-| 6 | Missing Number | Treat unknowns as fillable values | Solve, Fill Blank, MC |
-
-### World 3 — Mixed Fluency / Algebra Gate
+### World 2 — Add / Subtract Instinct
 
 | Level | Name | Core Instinct | Main Question Formats |
 |------|------|---------------|-----------------------|
-| 7 | Mixed Operations | Choose the correct operation under light pressure | Solve, MC, True/False |
-| 8 | Order Sense | Respect operation order in simple expressions | Solve, MC, True/False |
-| 9 | Negative Basics | Understand simple negative movement and absolute value | Solve, Fill Blank, MC, True/False |
+| 5 | Quick Add | Combine small numbers quickly | Solve, Fill Blank, MC, True/False |
+| 6 | Make Ten | Use 10 as an anchor for faster addition | Solve, Fill Blank, MC, True/False |
+| 7 | Quick Subtract | Understand subtraction as removal / difference | Solve, Fill Blank, MC, True/False |
+| 8 | Add / Subtract Mixed | Choose combining vs taking away | Solve, Fill Blank, MC, True/False |
 
-### Road to Arithmetic Completion Gate
+### World 3 — Group / Split Instinct
+
+| Level | Name | Core Instinct | Main Question Formats |
+|------|------|---------------|-----------------------|
+| 9 | Multiplication Groups | Multiplication as equal groups | Solve, Fill Blank, MC, True/False |
+| 10 | Division Finder | Division as inverse grouping / sharing | Solve, Fill Blank, MC, True/False |
+| 11 | Operation Patterns | Operation facts form repeated patterns | Solve, Fill Blank, MC, True/False |
+| 12 | Missing Number Basics | Use inverse operations to find unknowns | Solve, Fill Blank, MC, True/False |
+
+### World 4 — Pre-Algebra Gate
+
+| Level | Name | Core Instinct | Main Question Formats |
+|------|------|---------------|-----------------------|
+| 13 | Order Sense | Respect operation order and grouping | Solve, Fill Blank, MC, True/False |
+| 14 | Negative Number Line | Number-line movement can cross zero | Solve, Fill Blank, MC, True/False |
+| 15 | Compare Negative Numbers | For negatives, farther right is greater | Solve, Fill Blank, MC, True/False |
+| 16 | Negative Steps | Counting steps can move through zero | Solve, Fill Blank, MC, True/False |
+| 17 | Missing Number Mixed | Unknowns can appear in different operations and positions | Solve, Fill Blank, MC, True/False |
+| 18 | Arithmetic Roadblock | Mixed recall proves older instincts stayed available | Solve, Fill Blank, MC, True/False |
+
+---
+
+## 6. Road to Arithmetic Completion Gate
 
 Before entering Road to Algebra later, the player must pass an Arithmetic Roadblock covering:
 
+- counting steps / movement
+- number-line reasoning
+- comparing values
+- patterns
 - addition fluency
 - subtraction fluency
-- multiplication facts
-- division facts
+- multiplication groups
+- division finder
 - missing numbers
 - order of operations
 - negative-number basics
 
-In the first build, the Roadblock can be represented as a placeholder state or simple locked gate. The full Roadblock experience can be implemented later.
+In Phase 0, the Roadblock is a simple mixed-recall level. The later adaptive Roadblock system can replace or expand it with personalized retention logic.
 
 ---
 
-## 5. Included in the First Build
+## 7. Included in Phase 0
 
 The first build includes:
 
@@ -134,7 +160,7 @@ The first build includes:
 - player creation/selection
 - player settings foundation
 - Road to Arithmetic config
-- 3 Worlds / 9 Levels
+- 4 Worlds / 18 Levels
 - generated questions from config
 - Practice Mode
 - Rush Mode
@@ -149,9 +175,9 @@ The first build includes:
 
 ---
 
-## 6. Not Included Yet
+## 8. Not Included Yet
 
-The following remain in the master plan, but are **not part of the first build**:
+The following remain in the master plan, but are not part of this Phase 0 implementation pass:
 
 - PixiJS overworld map
 - world-completion cinematics
@@ -159,7 +185,7 @@ The following remain in the master plan, but are **not part of the first build**
 - Geometry / Statistics / Calculus Roads
 - full adaptive retention engine
 - full Pop Quiz system
-- full Roadblock system
+- full adaptive Roadblock system
 - full family leaderboard
 - placement quiz
 - Word Problems
@@ -169,15 +195,11 @@ The following remain in the master plan, but are **not part of the first build**
 - school/classroom/teacher features
 - mobile-first gameplay redesign
 
-These are intentionally postponed so the first build can prove the core engine cleanly.
-
 ---
 
-## 7. First Mode Scope
+## 9. Mode Scope
 
-### Included Now
-
-#### Practice Mode
+### Practice Mode
 
 Practice Mode is calm and accuracy-focused.
 
@@ -187,14 +209,13 @@ Purpose:
 
 Practice Mode should support:
 
-- untimed or lightly pressured questions
 - one level at a time
 - simple results after a short session
 - accuracy tracking
 - question type tracking
 - submitted attempt logging
 
-#### Rush Mode
+### Rush Mode
 
 Rush Mode is the arcade fluency proof.
 
@@ -214,20 +235,9 @@ Rush Mode should support:
 - abandoned Rush handling
 - attempt logging
 
-### Known Modes, Not Fully Built Yet
-
-The data model should know these modes exist, but they do not need full UX in the first build:
-
-- Learn Mode
-- Review Mode
-- Pop Quiz
-- Roadblock
-
 ---
 
-## 8. Non-Negotiable Product Rules
-
-These rules must guide all development.
+## 10. Non-Negotiable Product Rules
 
 ### One Level, One Instinct
 
@@ -235,305 +245,35 @@ Every level trains exactly one core instinct.
 
 If a level requires two new instincts, it must be split.
 
+### Spiral Instincts
+
+Core instincts are allowed and expected to repeat across harder domains.
+
+So `Number Line` is not one level forever. It is a reusable mental move that reappears when the math domain gets harder.
+
 ### Simple Answer Input Only
 
 Every gameplay question must resolve to one of:
 
-- typed number
-- single missing number
-- multiple-choice key
-- true/false key
+- number
+- short symbol
+- true/false
+- multiple choice option
 
-No free-form algebra input in the first major version.
+### Understanding First, Fluency Second
 
-### XP Motivates, Mastery Unlocks
+Practice proves understanding. Rush proves fluency. Roadblocks later prove retention.
 
-XP rewards effort, consistency, streaks, and achievements.
-
-XP never unlocks serious progression by itself.
-
-### Rush Proves Fluency
-
-Rush is not the main teaching tool.
-
-Rush proves speed and accuracy after the player has enough comfort, unless the player chooses the Express Pass-style path later.
-
-### Practice Builds Comfort
-
-Practice exists to build correctness, comfort, and recognition before pressure.
-
-### Gameplay Is Keyboard-First
-
-Menus can support mouse/touch.
-
-Active gameplay should prioritize keyboard input.
-
-### Attempts Are Always Logged
-
-Every submitted answer attempt is saved.
-
-The system stores what happened, even if the final session result does not count for positive progression.
-
-### Wrong Answers Do Not Stop Rush
-
-Wrong answer behavior:
-
-```text
-Wrong answer → streak breaks → multiplier resets → quick feedback → next question
-```
-
-No blocking modal during Rush.
-
-### The Tone Must Stay Encouraging
-
-Mistakes should feel like useful signals, not failure labels.
-
-Road to Math should feel like:
-
-> “We found what to sharpen.”
-
-Not:
-
-> “You failed.”
-
----
-
-## 9. Starter XP Rules
-
-Starter values are intentionally simple and tuneable.
-
-| Event | Starter XP |
-|------|------------|
-| Correct Practice answer | +1 XP |
-| Correct Rush answer | +2 XP |
-| Practice session completed | +10 XP |
-| Rush completed | +10 XP |
-| New personal best | +25 XP |
-| Level Mastered | +100 XP |
-| Gold Mastery earned | +150 XP |
-| World completed | +500 XP |
-| Daily play streak bonus | +10 XP × streak day, capped at +100 |
-| Pop Quiz passed | +20 XP, later phase |
-| Roadblock cleared | +75 XP, later phase |
-
-XP does not replace mastery.
-
-If XP and mastery ever conflict, mastery wins.
-
----
-
-## 10. Abandoned Rush Rule
-
-If a player exits Rush before the timer ends:
-
-- all submitted attempts are still logged
-- the Rush does not count as completed
-- no Rush completion XP is awarded
-- it does not count for Express Pass
-- it does not count for personal best
-- it does not count for leaderboard records
-- it does not count as positive evidence for level unlock
-- the attempts may still be used for weakness diagnostics later
-
-This preserves useful learning data without allowing abandoned Rushes to inflate progression.
-
----
-
-## 11. First Data Scope
-
-The first build must store enough data to support mastery and future retention.
-
-Minimum first-build data entities:
-
-```text
-players
-player_settings
-play_sessions
-question_attempts
-rush_sessions
-level_progress
-xp_events
-```
-
-Every submitted answer attempt should store:
-
-```text
-player_id
-session_id
-road_id
-world_id
-level_id
-instinct_id
-question_template_id
-question_type
-mode
-is_correct
-answer_value
-expected_answer
-answer_time_ms
-question_payload_json
-created_at
-```
-
-The exact schema can be finalized in the dev architecture phase, but these data concepts are required from the start.
-
----
-
-## 12. First Mastery Scope
-
-The first build should include basic mastery signals:
-
-| Signal | Included in First Build? | Notes |
-|-------|---------------------------|-------|
-| Understanding | Yes | Practice accuracy |
-| Recognition | Yes, basic | Accuracy across question formats |
-| Fluency | Yes | Rush speed and accuracy |
-| Retention | Structure only | Full adaptive retention later |
-
-First build unlock can use:
-
-```text
-Understanding ≥ 80%
-Recognition ≥ 75%
-Fluency ≥ 75%
-Minimum attempts rule
-```
-
-The exact thresholds can follow the master plan and be tuned after playtesting.
-
-Gold Mastery can exist as a state but should not become a full feature until retention exists.
-
----
-
-## 13. First UX Scope
-
-The first build can be visually simple, but it must already feel like a game.
-
-Required feeling:
-
-- Practice feels calm
-- Rush feels fast
-- progress feels visible
-- feedback feels encouraging
-- keyboard input feels immediate
-- the player feels they are moving through a Road, not answering random questions
-
-Acceptable for first build:
-
-- simple screen layout
-- simple progress list instead of full map
-- basic animations
-- basic sound
-- basic profile screen
-
-Not acceptable:
-
-- messy architecture
-- unclear progression
-- answers not saved
-- XP unlocking levels directly
-- Rush blocking on wrong answers
-- questions that require complex free-form input
-
----
-
-## 14. First Version Success Definition
-
-The first version is successful when:
-
-```text
-A player can create or choose a profile, enter Road to Arithmetic, play Practice and Rush across real configured levels, have every submitted answer saved, see simple progress, earn XP, and unlock new levels through mastery signals.
-```
-
-That is the first complete Road to Math product slice.
-
-It does not need to be visually final.
-
-It does need to prove the product engine.
-
----
-
-## 15. Decisions Still Needed Before Dev Planning
-
-Only a few product decisions remain before turning this into a macro dev plan.
-
-### Decision 1 — Learn Mode in First Build
-
-Choose one:
-
-**Option A — Postpone Learn Mode**
-
-First build includes Practice + Rush only. Learn Mode comes after the core engine works.
-
-**Option B — Basic Learn Mode Included**
-
-Each level gets a simple concept card before Practice.
-
-Recommendation: **Option A** for cleanest first build, unless the first testers need guidance immediately.
-
----
-
-### Decision 2 — Roadblock in First Build
-
-Choose one:
-
-**Option A — Placeholder Gate Only**
-
-Road to Algebra remains visually locked. No full Roadblock gameplay yet.
-
-**Option B — Simple Arithmetic Roadblock Included**
-
-After Level 9, the player gets a mixed final check.
-
-Recommendation: **Option A** first. Build Roadblocks properly when Review/Retention starts.
-
----
-
-### Decision 3 — First UI Navigation Style
-
-Choose one:
-
-**Option A — Simple Road List**
-
-Road → World → Level displayed as clean cards/lists.
-
-**Option B — Early Mini Map**
-
-A simple non-Pixi visual path of nodes.
-
-Recommendation: **Option A** first. Do not start visual map work before mastery data is reliable.
-
----
-
-### Decision 4 — Account Model
-
-Choose one:
-
-**Option A — Local Players Only**
-
-No passwords or login. Family members choose their player profile on the home server.
-
-**Option B — Simple PIN/Password Per Player**
-
-Each player can protect their profile with a simple local PIN/password.
-
-Recommendation: **Option A** for first build, unless kids changing each other's profiles becomes a real concern.
-
----
-
-## 16. Phase 0 Exit Criteria
+### Phase 0 Exit Criteria
 
 Phase 0 is complete when these are approved:
 
 ```text
 Build from zero: approved
 First Road: Road to Arithmetic
-First content: 3 Worlds / 9 Levels
+First content: 4 Worlds / 18 Levels
 First modes: Practice + Rush
 First progression: mastery-based unlocks
 First storage: players, sessions, attempts, progress, XP
-First exclusions: PixiJS, Algebra, full retention, full leaderboard
-Remaining decisions: answered
+First exclusions: PixiJS, Algebra, full adaptive retention, full leaderboard
 ```
-
-After Phase 0 is approved, the next step is the macro dev plan.
