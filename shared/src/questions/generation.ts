@@ -119,9 +119,9 @@ function lineMoveQuestion(sourceTemplateId: string, start: number, move: number)
 }
 
 function countingStep(random: RandomSource): BaseQuestion {
-  const step = pick(random, [1, 2, 5, 10]);
+  const step = pick(random, [1, 2]);
   const direction = random.nextBoolean() ? 1 : -1;
-  const start = direction === 1 ? random.nextInt(0, 20) : random.nextInt(step * 3, 40);
+  const start = direction === 1 ? random.nextInt(0, 12) : random.nextInt(step * 3, 20);
   return sequenceQuestion(direction === 1 ? "counting-step-forward" : "counting-step-backward", start, direction * step);
 }
 
