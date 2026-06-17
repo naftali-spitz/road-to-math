@@ -80,7 +80,26 @@ function createOptions(correct: AnswerValue, random: RandomSource): MultipleChoi
 }
 
 function statementFrom(base: BaseQuestion, answer: AnswerValue) {
-  return base.prompt.includes("?") ? base.prompt.replace("?", renderAnswer(answer)) : `${base.prompt} ${renderAnswer(answer)}`;
+  const rendered = renderAnswer(answer);
+  const { left, right, number } = base.variables;
+
+  if (typeof number === "number" && base.sourceTemplateId.includes("before-number")) {
+    return `${rendered} comes before ${number}`;
+  }
+
+  if (typeof left === "number" && typeof right === "number" && base.sourceTemplateId.includes("bigger")) {
+    return `The greatest value among ${left} and ${right} is ${rendered}`;
+  }
+
+  if (base.prompt.includes("__")) {
+    return base.prompt.replace("__", rendered);
+  }
+
+  if (base.prompt.includes("?")) {
+    return base.prompt.replace("?", rendered).replace(/\?$/u, "");
+  }
+
+  return `${base.prompt} ${rendered}`;
 }
 
 function sequenceQuestion(sourceTemplateId: string, start: number, step: number): BaseQuestion {
