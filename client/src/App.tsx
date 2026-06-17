@@ -135,6 +135,7 @@ const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "/api";
 const selectedPlayerStorageKey = "road-to-math:selected-player-id";
 const practiceQuestionTarget = 10;
 const rushDurationSeconds = 60;
+const recentQuestionLimit = 8;
 
 async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
@@ -257,8 +258,16 @@ function PracticeMode({
   const activeFormats = level.supportedQuestionFormats;
   const [formatState, setFormatState] = useState<PracticeFormatState>(initialPracticeFormatState);
   const [questionCount, setQuestionCount] = useState(0);
+  const recentQuestionFingerprintsRef = useRef<string[]>([]);
+  function rememberQuestion(nextQuestion: GeneratedQuestion) {
+    recentQuestionFingerprintsRef.current = [
+      nextQuestion.fingerprint,
+      ...recentQuestionFingerprintsRef.current.filter((fingerprint) => fingerprint !== nextQuestion.fingerprint)
+    ].slice(0, recentQuestionLimit);
+    return nextQuestion;
+  }
   const [question, setQuestion] = useState<GeneratedQuestion>(() =>
-    generateQuestion(level, { format: activeFormats[0], seed: `${level.levelId}:practice:0` })
+    rememberQuestion(generateQuestion(level, { format: activeFormats[0], seed: `${level.levelId}:practice:0` }))
   );
   const [questionStartedAt, setQuestionStartedAt] = useState(() => Date.now());
   const [typedAnswer, setTypedAnswer] = useState("");
@@ -277,7 +286,15 @@ function PracticeMode({
   function createNextQuestion(nextCount: number, nextFormatState: PracticeFormatState) {
     const format = choosePracticeQuestionFormat(activeFormats, nextFormatState, nextCount + Date.now());
 
-    setQuestion(generateQuestion(level, { format, seed: `${level.levelId}:practice:${nextCount}:${format}` }));
+    setQuestion(
+      rememberQuestion(
+        generateQuestion(level, {
+          format,
+          seed: `${level.levelId}:practice:${nextCount}:${format}`,
+          recentFingerprints: recentQuestionFingerprintsRef.current
+        })
+      )
+    );
     setQuestionStartedAt(Date.now());
     setTypedAnswer("");
     setFeedback(null);
@@ -591,8 +608,18 @@ function RushMode({
   const activeFormats = level.supportedQuestionFormats;
   const [rushSession, setRushSession] = useState<RushSession | null>(null);
   const [timeLeft, setTimeLeft] = useState(rushDurationSeconds);
+  const recentQuestionFingerprintsRef = useRef<string[]>([]);
+  function rememberQuestion(nextQuestion: GeneratedQuestion) {
+    recentQuestionFingerprintsRef.current = [
+      nextQuestion.fingerprint,
+      ...recentQuestionFingerprintsRef.current.filter((fingerprint) => fingerprint !== nextQuestion.fingerprint)
+    ].slice(0, recentQuestionLimit);
+    return nextQuestion;
+  }
   const [question, setQuestion] = useState<GeneratedQuestion>(() =>
-    generateQuestion(level, { format: pickRandomFormat(activeFormats, Date.now()), seed: `${level.levelId}:rush:0` })
+    rememberQuestion(
+      generateQuestion(level, { format: pickRandomFormat(activeFormats, Date.now()), seed: `${level.levelId}:rush:0` })
+    )
   );
   const [questionStartedAt, setQuestionStartedAt] = useState(() => Date.now());
   const [typedAnswer, setTypedAnswer] = useState("");
@@ -616,7 +643,15 @@ function RushMode({
 
   function createNextQuestion(nextTotal: number) {
     const format = pickRandomFormat(activeFormats, Date.now() + nextTotal);
-    setQuestion(generateQuestion(level, { format, seed: `${level.levelId}:rush:${nextTotal}:${format}:${Date.now()}` }));
+    setQuestion(
+      rememberQuestion(
+        generateQuestion(level, {
+          format,
+          seed: `${level.levelId}:rush:${nextTotal}:${format}:${Date.now()}`,
+          recentFingerprints: recentQuestionFingerprintsRef.current
+        })
+      )
+    );
     setQuestionStartedAt(Date.now());
     setTypedAnswer("");
   }

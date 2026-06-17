@@ -47,8 +47,8 @@ const levels: LevelSeed[] = [
     instinctDescription: "Numbers can move by a fixed step forward or backward.",
     benchmarkAnswerSeconds: 2.5,
     sampleQuestionTemplates: [
-      { templateId: "counting-step-next-number", format: "fillBlank", prompt: "7, 8, 9, ?", answer: 10 },
-      { templateId: "counting-step-skip-by-five", format: "solve", prompt: "5, 10, 15, ?", answer: 20 }
+      { templateId: "counting-step-next-number", format: "fillBlank", prompt: "7, 8, 9, 10, ?", answer: 11 },
+      { templateId: "counting-step-skip-by-five", format: "solve", prompt: "5, 10, 15, 20, ?", answer: 25 }
     ]
   },
   {
@@ -90,7 +90,7 @@ const levels: LevelSeed[] = [
     benchmarkAnswerSeconds: 3.5,
     sampleQuestionTemplates: [
       { templateId: "whole-number-pattern-plus-two", format: "fillBlank", prompt: "2, 4, 6, 8, ?", answer: 10 },
-      { templateId: "whole-number-pattern-plus-five", format: "solve", prompt: "5, 10, 15, ?", answer: 20 }
+      { templateId: "whole-number-pattern-plus-five", format: "solve", prompt: "5, 10, 15, 20, ?", answer: 25 }
     ]
   },
   {
@@ -142,7 +142,7 @@ const levels: LevelSeed[] = [
     displayName: "Add / Subtract Mixed",
     generatorKey: "addSubtractMixed",
     instinctId: "instinct-choose-operation",
-    instinctDescription: "Choose whether a situation is combining or taking away.",
+    instinctDescription: "Switch quickly between addition and subtraction when the operation is shown.",
     benchmarkAnswerSeconds: 4.5,
     sampleQuestionTemplates: [
       { templateId: "add-subtract-mixed-add", format: "solve", prompt: "9 + 4 = ?", answer: 13 },
@@ -258,7 +258,7 @@ const levels: LevelSeed[] = [
     benchmarkAnswerSeconds: 5,
     sampleQuestionTemplates: [
       { templateId: "negative-steps-plus-two", format: "fillBlank", prompt: "-6, -4, -2, 0, ?", answer: 2 },
-      { templateId: "negative-steps-minus-three", format: "solve", prompt: "3, 0, -3, ?", answer: -6 }
+      { templateId: "negative-steps-minus-three", format: "solve", prompt: "3, 0, -3, -6, ?", answer: -9 }
     ]
   },
   {

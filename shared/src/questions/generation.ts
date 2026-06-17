@@ -6,6 +6,7 @@ type RandomSource = { nextInt(min: number, max: number): number; nextBoolean(): 
 type GeneratorFn = (random: RandomSource) => BaseQuestion;
 
 const optionIds: MultipleChoiceOption["optionId"][] = ["1", "2", "3", "4"];
+const defaultMaxGenerationAttempts = 10;
 
 function hashSeed(seed: string | number) {
   let hash = 2166136261;
@@ -33,18 +34,53 @@ function renderAnswer(value: AnswerValue) {
   return typeof value === "boolean" ? (value ? "true" : "false") : String(value);
 }
 
-function createNumericDistractors(correct: number, random: RandomSource) {
-  const distractors = new Set<number>();
-  const offsets = [-10, -5, -4, -3, -2, -1, 1, 2, 3, 4, 5, 10];
+function valueKey(value: AnswerValue) {
+  return `${typeof value}:${String(value)}`;
+}
 
-  while (distractors.size < 3) {
-    const candidate = correct + pick(random, offsets);
-    if (candidate >= -100 && candidate <= 100 && candidate !== correct) {
-      distractors.add(candidate);
-    }
+function fingerprintValue(value: AnswerValue) {
+  return String(value).replace(/[.=]/gu, "_");
+}
+
+function createQuestionFingerprint(level: Level, format: QuestionFormat, base: BaseQuestion, expectedAnswer: AnswerValue) {
+  const variableParts = Object.entries(base.variables)
+    .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey))
+    .map(([key, value]) => `${key}=${fingerprintValue(value)}`);
+
+  return [
+    level.levelId,
+    format,
+    base.sourceTemplateId,
+    ...variableParts,
+    `correct=${fingerprintValue(base.answer)}`,
+    `expected=${fingerprintValue(expectedAnswer)}`
+  ].join(".");
+}
+
+function createNumericDistractors(correct: number, random: RandomSource) {
+  const usefulOffsets = [-10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  const seen = new Set<number>();
+  const candidates = usefulOffsets
+    .map((offset) => correct + offset)
+    .filter((candidate) => {
+      if (candidate === correct || candidate < -100 || candidate > 100 || seen.has(candidate)) {
+        return false;
+      }
+
+      seen.add(candidate);
+      return true;
+    });
+  const selected = shuffle(candidates, random).slice(0, 3);
+
+  if (selected.length >= 3) {
+    return selected;
   }
 
-  return [...distractors];
+  const fallbackCandidates = Array.from({ length: 201 }, (_value, index) => index - 100)
+    .filter((candidate) => candidate !== correct && !selected.includes(candidate))
+    .sort((left, right) => Math.abs(left - correct) - Math.abs(right - correct) || left - right);
+
+  return [...selected, ...fallbackCandidates.slice(0, 3 - selected.length)];
 }
 
 function createStringDistractors(correct: string) {
@@ -60,7 +96,9 @@ function createDistractors(correct: AnswerValue, random: RandomSource): AnswerVa
   if (typeof correct === "boolean") return [!correct, "true", "false"].filter((value) => value !== correct).slice(0, 3);
 
   const distractors = createStringDistractors(correct);
-  while (distractors.length < 3) distractors.push(`${correct}${distractors.length + 1}`);
+  for (let index = 1; distractors.length < 3; index += 1) {
+    distractors.push(`${correct}${index}`);
+  }
   return distractors.slice(0, 3);
 }
 
@@ -74,21 +112,106 @@ function shuffle<T>(values: T[], random: RandomSource) {
 }
 
 function createOptions(correct: AnswerValue, random: RandomSource): MultipleChoiceOption[] {
-  return shuffle([correct, ...createDistractors(correct, random)], random)
-    .slice(0, 4)
-    .map((value, index) => ({ optionId: optionIds[index], label: renderAnswer(value), value, isCorrect: value === correct }));
+  const uniqueValues: AnswerValue[] = [];
+  const seen = new Set<string>();
+
+  for (const value of [correct, ...createDistractors(correct, random)]) {
+    const key = valueKey(value);
+    if (!seen.has(key)) {
+      seen.add(key);
+      uniqueValues.push(value);
+    }
+  }
+
+  if (uniqueValues.length < 4) {
+    throw new Error(`Multiple choice generation needs 4 unique options for '${renderAnswer(correct)}'.`);
+  }
+
+  const options = shuffle(uniqueValues, random).slice(0, 4);
+
+  if (!options.some((value) => valueKey(value) === valueKey(correct))) {
+    options[0] = correct;
+  }
+
+  return shuffle(options, random).map((value, index) => ({
+    optionId: optionIds[index],
+    label: renderAnswer(value),
+    value,
+    isCorrect: valueKey(value) === valueKey(correct)
+  }));
 }
 
 function statementFrom(base: BaseQuestion, answer: AnswerValue) {
   const rendered = renderAnswer(answer);
-  const { left, right, number } = base.variables;
+  const { addend, divisor, factor, factorLeft, factorRight, groups, input, known, left, missing, move, multiplier, number, removed, right, size, start, step, total } = base.variables;
 
   if (typeof number === "number" && base.sourceTemplateId.includes("before-number")) {
     return `${rendered} comes before ${number}`;
   }
 
+  if (typeof start === "number" && typeof step === "number" && base.sourceTemplateId.includes("step")) {
+    const values = [start, start + step, start + step * 2, start + step * 3];
+    return `The next value after ${values.join(", ")} is ${rendered}`;
+  }
+
   if (typeof left === "number" && typeof right === "number" && base.sourceTemplateId.includes("bigger")) {
-    return `The greatest value among ${left} and ${right} is ${rendered}`;
+    return `The greater value among ${left} and ${right} is ${rendered}`;
+  }
+
+  if (typeof start === "number" && typeof move === "number" && base.sourceTemplateId.includes("line-move")) {
+    return `Starting at ${start} and moving ${move >= 0 ? "+" : ""}${move} lands on ${rendered}`;
+  }
+
+  if (typeof left === "number" && typeof right === "number" && base.sourceTemplateId.includes("between")) {
+    return `The number halfway between ${left} and ${right} is ${rendered}`;
+  }
+
+  if (typeof multiplier === "number" && typeof input === "number" && base.sourceTemplateId.includes("operation-pattern-output")) {
+    return `With rule ×${multiplier}, input ${input} has output ${rendered}`;
+  }
+
+  if (typeof known === "number" && typeof total === "number" && base.sourceTemplateId.includes("make-ten")) {
+    return base.sourceTemplateId.includes("left")
+      ? `${rendered} plus ${known} equals ${total}`
+      : `${known} plus ${rendered} equals ${total}`;
+  }
+
+  if (typeof addend === "number" && base.sourceTemplateId.includes("missing-number")) {
+    return `${rendered} plus ${addend} equals ${Number(rendered) + addend}`;
+  }
+
+  if (typeof factor === "number" && base.sourceTemplateId.includes("factor")) {
+    return `${factor} times ${rendered} equals ${factor * Number(rendered)}`;
+  }
+
+  if (typeof groups === "number" && typeof size === "number" && base.sourceTemplateId.includes("multiplication-groups")) {
+    return `${groups} groups of ${size} equals ${rendered}`;
+  }
+
+  if (typeof total === "number" && typeof size === "number" && base.sourceTemplateId.includes("division-finder-quotient")) {
+    return `${total} divided by ${size} equals ${rendered}`;
+  }
+
+  if (typeof total === "number" && typeof size === "number" && base.sourceTemplateId.includes("division-finder-missing-groups")) {
+    return `${rendered} groups of ${size} make ${total}`;
+  }
+
+  if (typeof factorLeft === "number" && typeof factorRight === "number" && typeof addend === "number" && base.sourceTemplateId.includes("order-sense")) {
+    return base.sourceTemplateId.includes("brackets")
+      ? `The value of (${addend} + ${factorLeft}) × ${factorRight} is ${rendered}`
+      : `The value of ${addend} + ${factorLeft} × ${factorRight} is ${rendered}`;
+  }
+
+  if (typeof total === "number" && typeof removed === "number" && base.sourceTemplateId.includes("subtract-leftover")) {
+    return `${total} minus ${removed} equals ${rendered}`;
+  }
+
+  if (typeof total === "number" && typeof removed === "number" && base.sourceTemplateId.includes("subtract-left")) {
+    return `${rendered} minus ${removed} equals ${total}`;
+  }
+
+  if (typeof missing === "number" && typeof divisor === "number" && base.sourceTemplateId.includes("division-left")) {
+    return `${rendered} divided by ${divisor} equals ${missing}`;
   }
 
   if (base.prompt.includes("__")) {
@@ -121,7 +244,7 @@ function lineMoveQuestion(sourceTemplateId: string, start: number, move: number)
 function countingStep(random: RandomSource): BaseQuestion {
   const step = pick(random, [1, 2]);
   const direction = random.nextBoolean() ? 1 : -1;
-  const start = direction === 1 ? random.nextInt(0, 12) : random.nextInt(step * 3, 20);
+  const start = direction === 1 ? random.nextInt(0, 12) : random.nextInt(step * 4, 20);
   return sequenceQuestion(direction === 1 ? "counting-step-forward" : "counting-step-backward", start, direction * step);
 }
 
@@ -246,13 +369,31 @@ function missingNumberMixed(random: RandomSource): BaseQuestion {
     const factor = random.nextInt(2, 10);
     return { sourceTemplateId: "missing-number-mixed-factor-left", prompt: `? × ${factor} = ${missing * factor}`, answer: missing, variables: { missing, factor } };
   }
-  const missing = random.nextInt(2, 10);
-  const divisor = random.nextInt(2, 10);
+  const missing = random.nextInt(2, 8);
+  const divisor = random.nextInt(2, 5);
   return { sourceTemplateId: "missing-number-mixed-division-left", prompt: `? ÷ ${divisor} = ${missing}`, answer: missing * divisor, variables: { missing, divisor } };
 }
 
 function arithmeticRoadblock(random: RandomSource): BaseQuestion {
-  return pick(random, [quickAdd, quickSubtract, multiplicationGroups, divisionFinder, missingNumberBasics, orderSense, negativeNumberLine, compareNegativeNumbers, negativeSteps, missingNumberMixed])(random);
+  return pick(random, [
+    countingStep,
+    wholeNumberLine,
+    wholeNumberCompare,
+    wholeNumberPatterns,
+    quickAdd,
+    makeTen,
+    quickSubtract,
+    addSubtractMixed,
+    multiplicationGroups,
+    divisionFinder,
+    operationPatterns,
+    missingNumberBasics,
+    orderSense,
+    negativeNumberLine,
+    compareNegativeNumbers,
+    negativeSteps,
+    missingNumberMixed
+  ])(random);
 }
 
 const generators: Record<QuestionGeneratorKey, GeneratorFn> = {
@@ -276,9 +417,9 @@ const generators: Record<QuestionGeneratorKey, GeneratorFn> = {
   arithmeticRoadblock
 };
 
-export function generateQuestion(level: Level, options: GenerateQuestionOptions = {}): GeneratedQuestion {
-  const random = createRandom(`${level.levelId}:${options.format ?? "any"}:${options.seed ?? Date.now()}`);
-  const format: QuestionFormat = options.format ?? pick(random, level.supportedQuestionFormats);
+function createQuestionCandidate(level: Level, formatOption: QuestionFormat | undefined, seed: string | number): GeneratedQuestion {
+  const random = createRandom(`${level.levelId}:${formatOption ?? "any"}:${seed}`);
+  const format: QuestionFormat = formatOption ?? pick(random, level.supportedQuestionFormats);
 
   if (!level.supportedQuestionFormats.includes(format)) throw new Error(`Question format '${format}' is not supported by level '${level.levelId}'.`);
 
@@ -293,14 +434,37 @@ export function generateQuestion(level: Level, options: GenerateQuestionOptions 
     const options = createOptions(base.answer, random);
     const correctOption = options.find((option) => option.isCorrect);
     if (!correctOption) throw new Error(`Multiple choice generation failed for '${questionTemplateId}'.`);
-    return { questionTemplateId, prompt: base.prompt, expectedAnswer: correctOption.optionId, format, roadId: level.roadId, worldId: level.worldId, levelId: level.levelId, instinctId: level.coreInstinct.instinctId, payload, options };
+    const fingerprint = createQuestionFingerprint(level, format, base, base.answer);
+    return { questionTemplateId, fingerprint, prompt: base.prompt, expectedAnswer: correctOption.optionId, format, roadId: level.roadId, worldId: level.worldId, levelId: level.levelId, instinctId: level.coreInstinct.instinctId, payload, options };
   }
 
   if (format === "trueFalse") {
     const isStatementTrue = random.nextBoolean();
-    const assertedAnswer = isStatementTrue ? base.answer : createDistractors(base.answer, random)[0];
-    return { questionTemplateId, prompt: `True or false: ${statementFrom(base, assertedAnswer)}`, expectedAnswer: isStatementTrue, format, roadId: level.roadId, worldId: level.worldId, levelId: level.levelId, instinctId: level.coreInstinct.instinctId, payload: { ...payload, assertedAnswer, isStatementTrue } };
+    const distractors = createDistractors(base.answer, random);
+    const assertedAnswer = isStatementTrue ? base.answer : pick(random, distractors);
+    const fingerprint = createQuestionFingerprint(level, format, base, assertedAnswer);
+    return { questionTemplateId, fingerprint, prompt: `True or false: ${statementFrom(base, assertedAnswer)}`, expectedAnswer: isStatementTrue, format, roadId: level.roadId, worldId: level.worldId, levelId: level.levelId, instinctId: level.coreInstinct.instinctId, payload: { ...payload, assertedAnswer, isStatementTrue } };
   }
 
-  return { questionTemplateId, prompt: base.prompt, expectedAnswer: base.answer, format, roadId: level.roadId, worldId: level.worldId, levelId: level.levelId, instinctId: level.coreInstinct.instinctId, payload };
+  const fingerprint = createQuestionFingerprint(level, format, base, base.answer);
+  return { questionTemplateId, fingerprint, prompt: base.prompt, expectedAnswer: base.answer, format, roadId: level.roadId, worldId: level.worldId, levelId: level.levelId, instinctId: level.coreInstinct.instinctId, payload };
+}
+
+export function generateQuestion(level: Level, options: GenerateQuestionOptions = {}): GeneratedQuestion {
+  const recentFingerprints = new Set(options.recentFingerprints ?? []);
+  const maxGenerationAttempts = Math.max(1, Math.round(options.maxGenerationAttempts ?? defaultMaxGenerationAttempts));
+  const baseSeed = options.seed ?? Date.now();
+  let finalQuestion: GeneratedQuestion | null = null;
+
+  for (let attempt = 0; attempt < maxGenerationAttempts; attempt += 1) {
+    const seed = attempt === 0 ? baseSeed : `${baseSeed}:avoid-repeat:${attempt}`;
+    const question = createQuestionCandidate(level, options.format, seed);
+    finalQuestion = question;
+
+    if (!recentFingerprints.has(question.fingerprint)) {
+      return question;
+    }
+  }
+
+  return finalQuestion as GeneratedQuestion;
 }

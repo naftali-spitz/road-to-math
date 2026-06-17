@@ -151,16 +151,25 @@ npm run start
 ## Useful Scripts
 
 ```bash
+npm run dev:fresh
 npm run dev:client
 npm run dev:server
 npm run preview
 npm test
 npm run validate:content
+npm run sample:questions
+npm run reset:db
 ```
 
 `npm test` runs the first-build test suite: content validation, question generation, answer checking, Practice format introduction/mixing, backend attempt logging, Practice saving, Rush completion/abandon behavior, XP awarding, level unlocks, and Express Pass.
 
 `npm run validate:content` builds the shared package and validates the Road to Arithmetic config.
+
+`npm run sample:questions` builds the shared package and prints readable sample questions for every Road to Arithmetic level and supported format, including answers and fingerprints.
+
+`npm run dev:fresh` rebuilds the shared package before starting the normal frontend/backend dev servers.
+
+`npm run reset:db` deletes local SQLite dev DB files under `server/data`.
 
 ## Database
 

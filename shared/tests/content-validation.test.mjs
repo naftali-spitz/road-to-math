@@ -46,6 +46,33 @@ test("reusable instincts recur in later levels", () => {
   assert.ok(instincts.filter((id) => id === "instinct-missing-number").length >= 2);
 });
 
+test("sequence sample templates show four visible terms before the blank", () => {
+  const sequenceGeneratorKeys = new Set(["countingStep", "wholeNumberPatterns", "operationPatterns", "negativeSteps"]);
+  const sequenceSamples = levels
+    .filter((level) => sequenceGeneratorKeys.has(level.generatorKey))
+    .flatMap((level) =>
+      level.sampleQuestionTemplates
+        .filter((template) => template.prompt.includes(",") && template.prompt.trim().endsWith("?"))
+        .map((template) => ({ level, template }))
+    );
+
+  assert.ok(sequenceSamples.length > 0);
+
+  for (const { level, template } of sequenceSamples) {
+    const termsBeforeBlank = template.prompt
+      .replace(/\?$/u, "")
+      .split(",")
+      .map((term) => term.trim())
+      .filter(Boolean);
+
+    assert.equal(
+      termsBeforeBlank.length,
+      4,
+      `${level.displayName} sample '${template.prompt}' should show four visible terms`
+    );
+  }
+});
+
 test("config validation rejects unsupported question formats", () => {
   const invalidRoad = clone(roadToArithmetic);
   invalidRoad.worlds[0].levels[0].supportedQuestionFormats = ["solve", "graphQuestion"];

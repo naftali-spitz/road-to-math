@@ -18,6 +18,7 @@ export type GeneratedQuestionPayload = {
 
 export type GeneratedQuestion = {
   questionTemplateId: string;
+  fingerprint: string;
   prompt: string;
   expectedAnswer: AnswerValue;
   format: QuestionFormat;
@@ -32,6 +33,8 @@ export type GeneratedQuestion = {
 export type GenerateQuestionOptions = {
   format?: QuestionFormat;
   seed?: string | number;
+  recentFingerprints?: string[];
+  maxGenerationAttempts?: number;
 };
 
 export type AnswerCheckResult = {
