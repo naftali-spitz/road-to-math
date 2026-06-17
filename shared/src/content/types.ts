@@ -9,14 +9,23 @@ export type QuestionFormat = (typeof supportedQuestionFormats)[number];
 
 export type QuestionGeneratorKey =
   | "countingStep"
-  | "numberCompare"
+  | "wholeNumberLine"
+  | "wholeNumberCompare"
+  | "wholeNumberPatterns"
+  | "quickAdd"
   | "makeTen"
-  | "additionBuilder"
-  | "subtractionSplitter"
+  | "quickSubtract"
+  | "addSubtractMixed"
   | "multiplicationGroups"
   | "divisionFinder"
+  | "operationPatterns"
+  | "missingNumberBasics"
   | "orderSense"
-  | "unknownReady";
+  | "negativeNumberLine"
+  | "compareNegativeNumbers"
+  | "negativeSteps"
+  | "missingNumberMixed"
+  | "arithmeticRoadblock";
 
 export type AnswerValue = string | number | boolean;
 
