@@ -1,13 +1,71 @@
 # Road to Math
 
-Fresh technical foundation for Road to Math.
+Road to Math is a family-focused arcade mastery game for math fluency. The goal is to turn repeated math moves into instinct through Practice, Rush, mastery tracking, XP, and Road progression.
+
+The current build is the Phase 0 foundation for **Road to Arithmetic**.
+
+## Current Phase 0 Slice
+
+```text
+Road to Arithmetic
+4 Worlds
+18 Levels
+Practice Mode
+Rush Mode
+Player profile
+Session tracking
+Attempt logging
+Basic mastery calculation
+Level unlocks
+Starter XP rewards
+Arithmetic Roadblock mixed-recall level
+```
+
+The content model now follows **spiral mastery**:
+
+```text
+Counting Step, Number Compare, Number Line, Patterns, and Missing Number are reusable instincts.
+They appear again at harder difficulty bands instead of existing as one-time starter levels.
+```
+
+## Phase 0 Arithmetic Map
+
+```text
+World 1 — Whole Number Instinct
+1. Count Forward / Backward
+2. Whole Number Line
+3. Compare Whole Numbers
+4. Whole Number Patterns
+
+World 2 — Add / Subtract Instinct
+5. Quick Add
+6. Make Ten
+7. Quick Subtract
+8. Add / Subtract Mixed
+
+World 3 — Group / Split Instinct
+9. Multiplication Groups
+10. Division Finder
+11. Operation Patterns
+12. Missing Number Basics
+
+World 4 — Pre-Algebra Gate
+13. Order Sense
+14. Negative Number Line
+15. Compare Negative Numbers
+16. Negative Steps
+17. Missing Number Mixed
+18. Arithmetic Roadblock
+```
+
+After the Arithmetic Roadblock, the next planned content direction is **Phase 1: Fractions / Decimals / Ratios**, reusing the same instincts at a harder domain. Road to Algebra remains the larger next major road after those foundations are strong.
 
 ## Stack
 
 - React + TypeScript + Vite frontend in `client`
 - Node + Express backend in `server`
 - SQLite database file in `server/data`
-- Shared TypeScript contracts in `shared`
+- Shared TypeScript contracts, content, question generation, validation, and answer checking in `shared`
 - npm workspaces
 
 ## First Run
@@ -37,12 +95,6 @@ Open the app:
 http://localhost:5173
 ```
 
-The screen should show connected statuses for:
-
-- Frontend
-- Backend
-- Database
-
 The backend health endpoint is available at:
 
 ```text
@@ -55,7 +107,9 @@ The backend database debug endpoint is available at:
 http://localhost:4100/api/debug/database
 ```
 
-It reports the SQLite PRAGMAs, applied migrations, required table checks, and required index checks.
+It reports SQLite PRAGMAs, applied migrations, required table checks, and required index checks.
+
+## API Surface
 
 Local player endpoints:
 
@@ -73,11 +127,14 @@ POST /api/players/:playerId/rush-sessions/:rushSessionId/complete
 POST /api/players/:playerId/rush-sessions/:rushSessionId/abandon
 ```
 
-XP is awarded by the backend and logged in `player_xp_events`. `players.xp_total` is updated from those events; level unlocks are not based on XP.
+XP is awarded by the backend and logged in `player_xp_events`. `players.xp_total` is updated from those events. Level unlocks are based on mastery, not XP.
 
-Mastery updates are stored in `level_progress`. Understanding comes from Practice accuracy, Recognition comes from Practice accuracy across the level's available question formats, and Fluency comes from completed Rushes that meet the level benchmark speed. Abandoned Rushes keep their submitted attempts but do not count as completed Rushes or Express Pass attempts.
+Mastery updates are stored in `level_progress`:
 
-The first playable slice shows all 3 Arithmetic Worlds and all 9 Arithmetic Levels. After Level 9, the app shows a basic Road to Algebra gate placeholder; Algebra content is deferred.
+- Understanding comes from Practice accuracy.
+- Recognition comes from Practice accuracy across available question formats.
+- Fluency comes from completed Rushes that meet the level benchmark speed.
+- Abandoned Rushes keep submitted attempts but do not count as completed Rushes or Express Pass attempts.
 
 ## Build
 
@@ -91,9 +148,59 @@ npm run build
 npm run start
 ```
 
+## Useful Scripts
+
+```bash
+npm run dev:client
+npm run dev:server
+npm run preview
+npm test
+npm run validate:content
+```
+
+`npm test` runs the first-build test suite: content validation, question generation, answer checking, Practice format introduction/mixing, backend attempt logging, Practice saving, Rush completion/abandon behavior, XP awarding, level unlocks, and Express Pass.
+
+`npm run validate:content` builds the shared package and validates the Road to Arithmetic config.
+
+## Database
+
+The SQLite file is created automatically when the backend starts:
+
+```text
+server/data/road-to-math.sqlite
+```
+
+Backend startup applies SQLite runtime settings and runs pending migrations:
+
+```text
+PRAGMA journal_mode = WAL
+PRAGMA foreign_keys = ON
+PRAGMA synchronous = NORMAL
+```
+
+SQLite is acceptable for the current family/local-server target. The DB access layer should stay isolated so PostgreSQL can be introduced later if traffic/concurrency grows.
+
+## Environment
+
+Backend defaults live in `server/.env.example`:
+
+```bash
+PORT=4100
+DATABASE_PATH=./data/road-to-math.sqlite
+CORS_ORIGIN=http://localhost:5173
+NODE_ENV=development
+```
+
+Frontend defaults live in `client/.env.example`:
+
+```bash
+VITE_API_BASE_URL=/api
+VITE_BACKEND_PORT=4100
+```
+
 ## Local Deployment Notes: Debian + Nginx + Node
 
-These notes are for a local Debian home server deployment. They are not required for development, and this project is not deployed automatically.
+These notes are for a local Debian home server deployment. This project is not deployed automatically.
 
 Build on the server:
 
@@ -123,6 +230,13 @@ Copy the frontend build to an Nginx-served directory:
 ```bash
 sudo mkdir -p /var/www/road-to-math
 sudo rsync -a --delete client/dist/ /var/www/road-to-math/
+```
+
+If `rsync` is not installed:
+
+```bash
+sudo rm -rf /var/www/road-to-math/*
+sudo cp -a client/dist/. /var/www/road-to-math/
 ```
 
 Example Nginx site:
@@ -188,50 +302,30 @@ curl http://math.local/api/health
 journalctl -u road-to-math -f
 ```
 
-## Useful Scripts
+## Deploy Check After Content Updates
+
+Because level IDs changed from the earlier 9-level prototype, test new content with a fresh player after pulling this update.
+
+Recommended check:
 
 ```bash
-npm run dev:client
-npm run dev:server
-npm run preview
-npm test
+git pull
+rm -f client/tsconfig.tsbuildinfo shared/tsconfig.tsbuildinfo
+npm install
+npm run build
+npm run test --workspace shared
 npm run validate:content
 ```
 
-`npm test` runs the full first-build test suite: content validation coverage, question generation, answer checking, Practice format introduction/mixing, backend attempt logging, Practice saving, Rush completion/abandon behavior, XP awarding, level unlocks, and Express Pass.
-
-`npm run validate:content` builds the shared package and validates the Road to Arithmetic config.
-
-## Database
-
-The SQLite file is created automatically when the backend starts:
+Then verify:
 
 ```text
-server/data/road-to-math.sqlite
-```
-
-Backend startup applies SQLite runtime settings and runs pending migrations:
-
-```text
-PRAGMA journal_mode = WAL
-PRAGMA foreign_keys = ON
-PRAGMA synchronous = NORMAL
-```
-
-## Environment
-
-Backend defaults live in `server/.env.example`:
-
-```bash
-PORT=4100
-DATABASE_PATH=./data/road-to-math.sqlite
-CORS_ORIGIN=http://localhost:5173
-NODE_ENV=development
-```
-
-Frontend defaults live in `client/.env.example`:
-
-```bash
-VITE_API_BASE_URL=/api
-VITE_BACKEND_PORT=4100
+Create/select player
+Open Road to Arithmetic
+Confirm 4 worlds / 18 levels appear
+Start Practice
+Finish Practice
+Start Rush
+Finish Rush
+Confirm progress and unlocks save
 ```
