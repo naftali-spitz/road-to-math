@@ -67,12 +67,12 @@ The first version is not only a quiz screen. It should already prove the Road to
 
 Only Road to Arithmetic is included in Phase 0.
 
-Road to Arithmetic is the foundation gate before Road to Algebra. It trains basic number instincts Algebra depends on.
+Road to Arithmetic is the first foundation gate. It trains the number instincts needed before Phase 1 Fractions / Decimals / Ratios and before the later Road to Algebra can feel natural.
 
 The important design correction is **spiral mastery**:
 
 ```text
-Counting Step, Number Compare, Number Line, and Patterns are not one-time starter levels.
+Counting Step, Number Compare, Number Line, Patterns, and Missing Number are not one-time starter levels.
 They are reusable instincts that come back at harder difficulty bands.
 ```
 
@@ -80,9 +80,10 @@ Examples:
 
 ```text
 Counting Step: whole numbers → negatives → fractions → decimals
-Number Compare: whole numbers → negatives → fractions → expressions
+Number Compare: whole numbers → negatives → fractions → decimals → expressions
 Number Line: whole numbers → negatives → fractions → coordinates → graphs
-Patterns: skip counting → operation patterns → function tables
+Patterns: skip counting → operation patterns → fraction patterns → function tables
+Missing Number: arithmetic blanks → mixed blanks → fraction blanks → equations
 ```
 
 ---
@@ -131,7 +132,7 @@ Patterns: skip counting → operation patterns → function tables
 
 ## 6. Road to Arithmetic Completion Gate
 
-Before entering Road to Algebra later, the player must pass an Arithmetic Roadblock covering:
+Before leaving Arithmetic for Phase 1 and later Algebra, the player must pass an Arithmetic Roadblock covering:
 
 - counting steps / movement
 - number-line reasoning
@@ -181,6 +182,7 @@ The following remain in the master plan, but are not part of this Phase 0 implem
 
 - PixiJS overworld map
 - world-completion cinematics
+- Phase 1 Fractions / Decimals / Ratios gameplay
 - Road to Algebra gameplay
 - Geometry / Statistics / Calculus Roads
 - full adaptive retention engine
@@ -275,5 +277,5 @@ First content: 4 Worlds / 18 Levels
 First modes: Practice + Rush
 First progression: mastery-based unlocks
 First storage: players, sessions, attempts, progress, XP
-First exclusions: PixiJS, Algebra, full adaptive retention, full leaderboard
+First exclusions: PixiJS, Phase 1 Fractions/Decimals/Ratios, Algebra, full adaptive retention, full leaderboard
 ```
