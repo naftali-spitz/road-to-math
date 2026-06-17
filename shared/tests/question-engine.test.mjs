@@ -43,6 +43,20 @@ test("generates valid questions for every Road to Arithmetic level and format", 
   }
 });
 
+test("first counting level stays beginner-friendly", () => {
+  const firstLevel = levels[0];
+
+  for (let seed = 0; seed < 40; seed += 1) {
+    const question = generateQuestion(firstLevel, { format: "solve", seed: `counting-friendly:${seed}` });
+    const step = Math.abs(question.payload.variables.step);
+    const start = question.payload.variables.start;
+
+    assert.ok(step === 1 || step === 2, `Expected step 1 or 2, got ${step} from ${question.prompt}`);
+    assert.ok(start >= 0 && start <= 20, `Expected small start value, got ${start} from ${question.prompt}`);
+    assert.ok(question.payload.correctAnswer >= 0 && question.payload.correctAnswer <= 24, `Expected small answer from ${question.prompt}`);
+  }
+});
+
 test("multiple choice questions have four options and exactly one correct answer", () => {
   for (const level of levels) {
     const question = generateQuestion(level, { format: "multipleChoice", seed: `${level.levelId}:mc` });
