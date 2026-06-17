@@ -65,6 +65,20 @@ test("true/false generation produces true and false examples over time", () => {
   }
 });
 
+test("true/false prompts are complete statements, not malformed questions", () => {
+  for (const level of levels) {
+    for (let seed = 0; seed < 24; seed += 1) {
+      const question = generateQuestion(level, { format: "trueFalse", seed: `${level.levelId}:statement:${seed}` });
+      const lowerPrompt = question.prompt.toLowerCase();
+
+      assert.equal(question.prompt.includes("__"), false, question.prompt);
+      assert.equal(question.prompt.includes("?"), false, question.prompt);
+      assert.equal(lowerPrompt.includes("true or false: what "), false, question.prompt);
+      assert.equal(lowerPrompt.includes("true or false: which "), false, question.prompt);
+    }
+  }
+});
+
 test("answer checking accepts simple typed equivalents centrally", () => {
   const numericQuestion = generateQuestion(levels[3], { format: "solve", seed: "numeric-equivalent" });
   assert.equal(checkAnswer(numericQuestion, String(numericQuestion.expectedAnswer)).isCorrect, true);
