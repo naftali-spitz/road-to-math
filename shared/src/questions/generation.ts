@@ -1,68 +1,45 @@
 import type { AnswerValue, Level, QuestionFormat, QuestionGeneratorKey } from "../content/types.js";
 import type { GeneratedQuestion, GenerateQuestionOptions, MultipleChoiceOption } from "./types.js";
 
-type ArithmeticBaseQuestion = {
-  sourceTemplateId: string;
-  prompt: string;
-  answer: AnswerValue;
-  variables: Record<string, AnswerValue>;
-};
-
-type RandomSource = {
-  nextInt(min: number, max: number): number;
-  nextBoolean(): boolean;
-};
-
-type GeneratorFn = (random: RandomSource) => ArithmeticBaseQuestion;
+type BaseQuestion = { sourceTemplateId: string; prompt: string; answer: AnswerValue; variables: Record<string, AnswerValue> };
+type RandomSource = { nextInt(min: number, max: number): number; nextBoolean(): boolean };
+type GeneratorFn = (random: RandomSource) => BaseQuestion;
 
 const optionIds: MultipleChoiceOption["optionId"][] = ["1", "2", "3", "4"];
 
-function hashSeed(seed: string | number): number {
-  const text = String(seed);
+function hashSeed(seed: string | number) {
   let hash = 2166136261;
-
-  for (let index = 0; index < text.length; index += 1) {
-    hash ^= text.charCodeAt(index);
+  for (const char of String(seed)) {
+    hash ^= char.charCodeAt(0);
     hash = Math.imul(hash, 16777619);
   }
-
   return hash >>> 0;
 }
 
 function createRandom(seed: string | number = Date.now()): RandomSource {
   let state = hashSeed(seed) || 1;
-
-  function next() {
-    state = Math.imul(1664525, state) + 1013904223;
-    return (state >>> 0) / 4294967296;
-  }
-
+  const next = () => ((state = Math.imul(1664525, state) + 1013904223) >>> 0) / 4294967296;
   return {
-    nextInt(min: number, max: number) {
-      return Math.floor(next() * (max - min + 1)) + min;
-    },
-    nextBoolean() {
-      return next() >= 0.5;
-    }
+    nextInt: (min, max) => Math.floor(next() * (max - min + 1)) + min,
+    nextBoolean: () => next() >= 0.5
   };
 }
 
-function pick<T>(random: RandomSource, values: T[]): T {
+function pick<T>(random: RandomSource, values: T[]) {
   return values[random.nextInt(0, values.length - 1)];
 }
 
-function renderAnswer(value: AnswerValue): string {
+function renderAnswer(value: AnswerValue) {
   return typeof value === "boolean" ? (value ? "true" : "false") : String(value);
 }
 
-function createNumericDistractors(correctAnswer: number, random: RandomSource) {
+function createNumericDistractors(correct: number, random: RandomSource) {
   const distractors = new Set<number>();
   const offsets = [-10, -5, -4, -3, -2, -1, 1, 2, 3, 4, 5, 10];
 
   while (distractors.size < 3) {
-    const candidate = correctAnswer + pick(random, offsets);
-
-    if (candidate >= 0 && candidate <= 100 && candidate !== correctAnswer) {
+    const candidate = correct + pick(random, offsets);
+    if (candidate >= -100 && candidate <= 100 && candidate !== correct) {
       distractors.add(candidate);
     }
   }
@@ -70,328 +47,241 @@ function createNumericDistractors(correctAnswer: number, random: RandomSource) {
   return [...distractors];
 }
 
-function createStringDistractors(correctAnswer: string) {
-  if (["<", ">", "="].includes(correctAnswer)) {
-    return ["<", ">", "=", "!="].filter((value) => value !== correctAnswer);
+function createStringDistractors(correct: string) {
+  if (["<", ">", "="].includes(correct)) {
+    return ["<", ">", "=", "!="].filter((value) => value !== correct);
   }
 
-  return ["yes", "no", "maybe"].filter((value) => value !== correctAnswer).slice(0, 3);
+  return ["yes", "no", "maybe"].filter((value) => value !== correct).slice(0, 3);
 }
 
-function createDistractors(correctAnswer: AnswerValue, random: RandomSource): AnswerValue[] {
-  if (typeof correctAnswer === "number") {
-    return createNumericDistractors(correctAnswer, random);
-  }
+function createDistractors(correct: AnswerValue, random: RandomSource): AnswerValue[] {
+  if (typeof correct === "number") return createNumericDistractors(correct, random);
+  if (typeof correct === "boolean") return [!correct, "true", "false"].filter((value) => value !== correct).slice(0, 3);
 
-  if (typeof correctAnswer === "boolean") {
-    return [!correctAnswer, "true", "false"].filter((value) => value !== correctAnswer).slice(0, 3);
-  }
-
-  const stringDistractors = createStringDistractors(correctAnswer);
-
-  while (stringDistractors.length < 3) {
-    stringDistractors.push(`${correctAnswer}${stringDistractors.length + 1}`);
-  }
-
-  return stringDistractors.slice(0, 3);
+  const distractors = createStringDistractors(correct);
+  while (distractors.length < 3) distractors.push(`${correct}${distractors.length + 1}`);
+  return distractors.slice(0, 3);
 }
 
 function shuffle<T>(values: T[], random: RandomSource) {
   const shuffled = [...values];
-
   for (let index = shuffled.length - 1; index > 0; index -= 1) {
     const swapIndex = random.nextInt(0, index);
     [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
   }
-
   return shuffled;
 }
 
-function createOptions(correctAnswer: AnswerValue, random: RandomSource): MultipleChoiceOption[] {
-  const values = shuffle([correctAnswer, ...createDistractors(correctAnswer, random)], random).slice(0, 4);
-
-  return values.map((value, index) => ({
-    optionId: optionIds[index],
-    label: renderAnswer(value),
-    value,
-    isCorrect: value === correctAnswer
-  }));
+function createOptions(correct: AnswerValue, random: RandomSource): MultipleChoiceOption[] {
+  return shuffle([correct, ...createDistractors(correct, random)], random)
+    .slice(0, 4)
+    .map((value, index) => ({ optionId: optionIds[index], label: renderAnswer(value), value, isCorrect: value === correct }));
 }
 
-function createWrongAnswer(correctAnswer: AnswerValue, random: RandomSource): AnswerValue {
-  return createDistractors(correctAnswer, random)[0];
+function statementFrom(base: BaseQuestion, answer: AnswerValue) {
+  return base.prompt.includes("?") ? base.prompt.replace("?", renderAnswer(answer)) : `${base.prompt} ${renderAnswer(answer)}`;
 }
 
-function statementFrom(base: ArithmeticBaseQuestion, answer: AnswerValue) {
-  if (base.prompt.includes("?")) {
-    return base.prompt.replace("?", renderAnswer(answer));
-  }
-
-  return `${base.prompt} ${renderAnswer(answer)}`;
+function sequenceQuestion(sourceTemplateId: string, start: number, step: number): BaseQuestion {
+  const values = [start, start + step, start + step * 2, start + step * 3];
+  return { sourceTemplateId, prompt: `${values.join(", ")}, ?`, answer: start + step * 4, variables: { start, step } };
 }
 
-function countingStep(random: RandomSource): ArithmeticBaseQuestion {
+function compareQuestion(sourceTemplateId: string, left: number, right: number, random: RandomSource): BaseQuestion {
   if (random.nextBoolean()) {
-    const start = random.nextInt(1, 16);
-    return {
-      sourceTemplateId: "counting-step-next-number",
-      prompt: `${start}, ${start + 1}, ${start + 2}, ?`,
-      answer: start + 3,
-      variables: { start }
-    };
+    return { sourceTemplateId: `${sourceTemplateId}-bigger`, prompt: `Bigger number: ${left} or ${right} = ?`, answer: Math.max(left, right), variables: { left, right } };
   }
-
-  const number = random.nextInt(2, 20);
-  return {
-    sourceTemplateId: "counting-step-before-number",
-    prompt: `What comes before ${number}?`,
-    answer: number - 1,
-    variables: { number }
-  };
+  return { sourceTemplateId: `${sourceTemplateId}-symbol`, prompt: `${left} __ ${right}`, answer: left === right ? "=" : left < right ? "<" : ">", variables: { left, right } };
 }
 
-function numberCompare(random: RandomSource): ArithmeticBaseQuestion {
-  const left = random.nextInt(1, 20);
-  const right = random.nextBoolean() ? random.nextInt(1, 20) : left;
+function lineMoveQuestion(sourceTemplateId: string, start: number, move: number): BaseQuestion {
+  return { sourceTemplateId, prompt: `Start at ${start}. Move ${move >= 0 ? "+" : ""}${move}. Land on ?`, answer: start + move, variables: { start, move } };
+}
 
+function countingStep(random: RandomSource): BaseQuestion {
+  const step = pick(random, [1, 2, 5, 10]);
+  const direction = random.nextBoolean() ? 1 : -1;
+  const start = direction === 1 ? random.nextInt(0, 20) : random.nextInt(step * 3, 40);
+  return sequenceQuestion(direction === 1 ? "counting-step-forward" : "counting-step-backward", start, direction * step);
+}
+
+function wholeNumberLine(random: RandomSource): BaseQuestion {
   if (random.nextBoolean()) {
-    return {
-      sourceTemplateId: "number-compare-bigger",
-      prompt: `Which is bigger: ${left} or ${right}?`,
-      answer: Math.max(left, right),
-      variables: { left, right }
-    };
+    const start = random.nextInt(0, 20);
+    const move = random.nextBoolean() ? random.nextInt(1, 8) : -random.nextInt(1, Math.min(8, start));
+    return lineMoveQuestion("whole-number-line-move", start, move);
   }
 
-  return {
-    sourceTemplateId: "number-compare-symbol",
-    prompt: `${left} __ ${right}`,
-    answer: left === right ? "=" : left < right ? "<" : ">",
-    variables: { left, right }
-  };
+  const left = random.nextInt(0, 16);
+  const gap = pick(random, [2, 4, 6, 8]);
+  return { sourceTemplateId: "whole-number-line-between", prompt: `Number halfway between ${left} and ${left + gap} = ?`, answer: left + gap / 2, variables: { left, right: left + gap } };
 }
 
-function makeTen(random: RandomSource): ArithmeticBaseQuestion {
+function wholeNumberCompare(random: RandomSource) {
+  const left = random.nextInt(0, 50);
+  const right = random.nextBoolean() ? random.nextInt(0, 50) : left;
+  return compareQuestion("whole-number-compare", left, right, random);
+}
+
+function wholeNumberPatterns(random: RandomSource) {
+  return sequenceQuestion("whole-number-pattern-add-step", random.nextInt(0, 10), random.nextInt(1, 6));
+}
+
+function quickAdd(random: RandomSource): BaseQuestion {
+  const left = random.nextInt(1, 12);
+  const right = random.nextInt(1, 12);
+  return { sourceTemplateId: "quick-add-total", prompt: `${left} + ${right} = ?`, answer: left + right, variables: { left, right } };
+}
+
+function makeTen(random: RandomSource): BaseQuestion {
   const known = random.nextInt(1, 9);
-  const missing = 10 - known;
   const missingLeft = random.nextBoolean();
-
-  return {
-    sourceTemplateId: missingLeft ? "make-ten-missing-addend-left" : "make-ten-missing-addend-right",
-    prompt: missingLeft ? `? + ${known} = 10` : `${known} + ? = 10`,
-    answer: missing,
-    variables: { known, total: 10 }
-  };
+  return { sourceTemplateId: missingLeft ? "make-ten-missing-addend-left" : "make-ten-missing-addend-right", prompt: missingLeft ? `? + ${known} = 10` : `${known} + ? = 10`, answer: 10 - known, variables: { known, total: 10 } };
 }
 
-function additionBuilder(random: RandomSource): ArithmeticBaseQuestion {
-  const left = random.nextInt(1, 10);
-  const right = random.nextInt(1, 10);
-
-  return {
-    sourceTemplateId: "addition-builder-total",
-    prompt: `${left} + ${right} = ?`,
-    answer: left + right,
-    variables: { left, right }
-  };
-}
-
-function subtractionSplitter(random: RandomSource): ArithmeticBaseQuestion {
-  const answer = random.nextInt(1, 12);
-  const removed = random.nextInt(1, 8);
+function quickSubtract(random: RandomSource): BaseQuestion {
+  const answer = random.nextInt(0, 15);
+  const removed = random.nextInt(1, 10);
   const total = answer + removed;
-
-  if (random.nextBoolean()) {
-    return {
-      sourceTemplateId: "subtraction-splitter-leftover",
-      prompt: `${total} - ${removed} = ?`,
-      answer,
-      variables: { total, removed }
-    };
-  }
-
-  return {
-    sourceTemplateId: "subtraction-splitter-missing",
-    prompt: `${total} - ? = ${answer}`,
-    answer: removed,
-    variables: { total, answer }
-  };
+  if (random.nextBoolean()) return { sourceTemplateId: "quick-subtract-leftover", prompt: `${total} - ${removed} = ?`, answer, variables: { total, removed } };
+  return { sourceTemplateId: "quick-subtract-missing", prompt: `${total} - ? = ${answer}`, answer: removed, variables: { total, answer } };
 }
 
-function multiplicationGroups(random: RandomSource): ArithmeticBaseQuestion {
-  const groups = random.nextInt(2, 6);
-  const size = random.nextInt(2, 6);
-
-  if (random.nextBoolean()) {
-    return {
-      sourceTemplateId: "multiplication-groups-expression",
-      prompt: `${groups} × ${size} = ?`,
-      answer: groups * size,
-      variables: { groups, size }
-    };
-  }
-
-  return {
-    sourceTemplateId: "multiplication-groups-language",
-    prompt: `${groups} groups of ${size} = ?`,
-    answer: groups * size,
-    variables: { groups, size }
-  };
+function addSubtractMixed(random: RandomSource) {
+  return random.nextBoolean() ? quickAdd(random) : quickSubtract(random);
 }
 
-function divisionFinder(random: RandomSource): ArithmeticBaseQuestion {
+function multiplicationGroups(random: RandomSource): BaseQuestion {
+  const groups = random.nextInt(2, 10);
+  const size = random.nextInt(2, 10);
+  if (random.nextBoolean()) return { sourceTemplateId: "multiplication-groups-expression", prompt: `${groups} × ${size} = ?`, answer: groups * size, variables: { groups, size } };
+  return { sourceTemplateId: "multiplication-groups-language", prompt: `${groups} groups of ${size} = ?`, answer: groups * size, variables: { groups, size } };
+}
+
+function divisionFinder(random: RandomSource): BaseQuestion {
   const groups = random.nextInt(2, 10);
   const size = random.nextInt(2, 10);
   const total = groups * size;
-
-  if (random.nextBoolean()) {
-    return {
-      sourceTemplateId: "division-finder-quotient",
-      prompt: `${total} ÷ ${size} = ?`,
-      answer: groups,
-      variables: { total, size }
-    };
-  }
-
-  return {
-    sourceTemplateId: "division-finder-missing-groups",
-    prompt: `? groups of ${size} make ${total}`,
-    answer: groups,
-    variables: { total, size }
-  };
+  if (random.nextBoolean()) return { sourceTemplateId: "division-finder-quotient", prompt: `${total} ÷ ${size} = ?`, answer: groups, variables: { total, size } };
+  return { sourceTemplateId: "division-finder-missing-groups", prompt: `? groups of ${size} make ${total}`, answer: groups, variables: { total, size } };
 }
 
-function orderSense(random: RandomSource): ArithmeticBaseQuestion {
+function operationPatterns(random: RandomSource): BaseQuestion {
+  if (random.nextBoolean()) return sequenceQuestion("operation-pattern-multiple-step", pick(random, [2, 3, 4, 5, 6, 7, 8, 9]), pick(random, [2, 3, 4, 5, 6, 7, 8, 9]));
+  const multiplier = random.nextInt(2, 9);
+  const input = random.nextInt(2, 9);
+  return { sourceTemplateId: "operation-pattern-output", prompt: `Rule: ×${multiplier}. Input ${input}. Output ?`, answer: multiplier * input, variables: { multiplier, input } };
+}
+
+function missingNumberBasics(random: RandomSource): BaseQuestion {
+  if (random.nextBoolean()) {
+    const missing = random.nextInt(1, 12);
+    const addend = random.nextInt(1, 10);
+    return { sourceTemplateId: "missing-number-basic-add", prompt: `${addend} + ? = ${missing + addend}`, answer: missing, variables: { missing, addend } };
+  }
+  const missing = random.nextInt(2, 10);
+  const factor = random.nextInt(2, 10);
+  return { sourceTemplateId: "missing-number-basic-factor", prompt: `${factor} × ? = ${factor * missing}`, answer: missing, variables: { missing, factor } };
+}
+
+function orderSense(random: RandomSource): BaseQuestion {
   const addend = random.nextInt(1, 5);
   const factorLeft = random.nextInt(2, 5);
   const factorRight = random.nextInt(2, 5);
-
-  if (random.nextBoolean()) {
-    return {
-      sourceTemplateId: "order-sense-multiply-before-add",
-      prompt: `${addend} + ${factorLeft} × ${factorRight} = ?`,
-      answer: addend + factorLeft * factorRight,
-      variables: { addend, factorLeft, factorRight }
-    };
-  }
-
-  return {
-    sourceTemplateId: "order-sense-brackets-first",
-    prompt: `(${addend} + ${factorLeft}) × ${factorRight} = ?`,
-    answer: (addend + factorLeft) * factorRight,
-    variables: { addend, factorLeft, factorRight }
-  };
+  if (random.nextBoolean()) return { sourceTemplateId: "order-sense-multiply-before-add", prompt: `${addend} + ${factorLeft} × ${factorRight} = ?`, answer: addend + factorLeft * factorRight, variables: { addend, factorLeft, factorRight } };
+  return { sourceTemplateId: "order-sense-brackets-first", prompt: `(${addend} + ${factorLeft}) × ${factorRight} = ?`, answer: (addend + factorLeft) * factorRight, variables: { addend, factorLeft, factorRight } };
 }
 
-function unknownReady(random: RandomSource): ArithmeticBaseQuestion {
-  if (random.nextBoolean()) {
-    const missing = random.nextInt(1, 12);
-    const addend = random.nextInt(1, 8);
-    return {
-      sourceTemplateId: "unknown-ready-x-plus",
-      prompt: `x + ${addend} = ${missing + addend}`,
-      answer: missing,
-      variables: { missing, addend }
-    };
-  }
+function negativeNumberLine(random: RandomSource) {
+  return lineMoveQuestion("negative-number-line-move", random.nextInt(-10, 10), random.nextBoolean() ? random.nextInt(1, 8) : -random.nextInt(1, 8));
+}
 
-  const missing = random.nextInt(2, 9);
-  const factor = random.nextInt(2, 6);
-  return {
-    sourceTemplateId: "unknown-ready-missing-factor",
-    prompt: `${factor} × ? = ${factor * missing}`,
-    answer: missing,
-    variables: { missing, factor }
-  };
+function compareNegativeNumbers(random: RandomSource) {
+  const left = random.nextInt(-12, 5);
+  const right = random.nextBoolean() ? random.nextInt(-12, 5) : left;
+  return compareQuestion("compare-negative", left, right, random);
+}
+
+function negativeSteps(random: RandomSource): BaseQuestion {
+  const step = random.nextInt(1, 4);
+  const direction = random.nextBoolean() ? 1 : -1;
+  const start = direction === 1 ? random.nextInt(-12, -1) : random.nextInt(0, 12);
+  return sequenceQuestion(direction === 1 ? "negative-steps-forward" : "negative-steps-backward", start, direction * step);
+}
+
+function missingNumberMixed(random: RandomSource): BaseQuestion {
+  const variant = random.nextInt(1, 4);
+  if (variant === 1) {
+    const missing = random.nextInt(1, 18);
+    const removed = random.nextInt(1, 10);
+    return { sourceTemplateId: "missing-number-mixed-subtract-left", prompt: `? - ${removed} = ${missing - removed}`, answer: missing, variables: { missing, removed } };
+  }
+  if (variant === 2) {
+    const missing = random.nextInt(-8, 8);
+    const addend = random.nextInt(1, 8);
+    return { sourceTemplateId: "missing-number-mixed-negative-add", prompt: `? + ${addend} = ${missing + addend}`, answer: missing, variables: { missing, addend } };
+  }
+  if (variant === 3) {
+    const missing = random.nextInt(2, 10);
+    const factor = random.nextInt(2, 10);
+    return { sourceTemplateId: "missing-number-mixed-factor-left", prompt: `? × ${factor} = ${missing * factor}`, answer: missing, variables: { missing, factor } };
+  }
+  const missing = random.nextInt(2, 10);
+  const divisor = random.nextInt(2, 10);
+  return { sourceTemplateId: "missing-number-mixed-division-left", prompt: `? ÷ ${divisor} = ${missing}`, answer: missing * divisor, variables: { missing, divisor } };
+}
+
+function arithmeticRoadblock(random: RandomSource): BaseQuestion {
+  return pick(random, [quickAdd, quickSubtract, multiplicationGroups, divisionFinder, missingNumberBasics, orderSense, negativeNumberLine, compareNegativeNumbers, negativeSteps, missingNumberMixed])(random);
 }
 
 const generators: Record<QuestionGeneratorKey, GeneratorFn> = {
   countingStep,
-  numberCompare,
+  wholeNumberLine,
+  wholeNumberCompare,
+  wholeNumberPatterns,
+  quickAdd,
   makeTen,
-  additionBuilder,
-  subtractionSplitter,
+  quickSubtract,
+  addSubtractMixed,
   multiplicationGroups,
   divisionFinder,
+  operationPatterns,
+  missingNumberBasics,
   orderSense,
-  unknownReady
+  negativeNumberLine,
+  compareNegativeNumbers,
+  negativeSteps,
+  missingNumberMixed,
+  arithmeticRoadblock
 };
 
 export function generateQuestion(level: Level, options: GenerateQuestionOptions = {}): GeneratedQuestion {
   const random = createRandom(`${level.levelId}:${options.format ?? "any"}:${options.seed ?? Date.now()}`);
-  const format = options.format ?? pick(random, level.supportedQuestionFormats);
+  const format: QuestionFormat = options.format ?? pick(random, level.supportedQuestionFormats);
 
-  if (!level.supportedQuestionFormats.includes(format)) {
-    throw new Error(`Question format '${format}' is not supported by level '${level.levelId}'.`);
-  }
+  if (!level.supportedQuestionFormats.includes(format)) throw new Error(`Question format '${format}' is not supported by level '${level.levelId}'.`);
 
   const createBaseQuestion = generators[level.generatorKey];
-
-  if (!createBaseQuestion) {
-    throw new Error(`No question generator registered for '${level.generatorKey}'.`);
-  }
+  if (!createBaseQuestion) throw new Error(`No question generator registered for '${level.generatorKey}'.`);
 
   const base = createBaseQuestion(random);
   const questionTemplateId = `${level.levelId}.${format}.${base.sourceTemplateId}`;
-  const payload = {
-    generatorKey: level.generatorKey,
-    sourceTemplateId: base.sourceTemplateId,
-    variables: base.variables,
-    correctAnswer: base.answer
-  };
+  const payload = { generatorKey: level.generatorKey, sourceTemplateId: base.sourceTemplateId, variables: base.variables, correctAnswer: base.answer };
 
   if (format === "multipleChoice") {
     const options = createOptions(base.answer, random);
     const correctOption = options.find((option) => option.isCorrect);
-
-    if (!correctOption) {
-      throw new Error(`Multiple choice generation failed for '${questionTemplateId}'.`);
-    }
-
-    return {
-      questionTemplateId,
-      prompt: base.prompt,
-      expectedAnswer: correctOption.optionId,
-      format,
-      roadId: level.roadId,
-      worldId: level.worldId,
-      levelId: level.levelId,
-      instinctId: level.coreInstinct.instinctId,
-      payload,
-      options
-    };
+    if (!correctOption) throw new Error(`Multiple choice generation failed for '${questionTemplateId}'.`);
+    return { questionTemplateId, prompt: base.prompt, expectedAnswer: correctOption.optionId, format, roadId: level.roadId, worldId: level.worldId, levelId: level.levelId, instinctId: level.coreInstinct.instinctId, payload, options };
   }
 
   if (format === "trueFalse") {
     const isStatementTrue = random.nextBoolean();
-    const assertedAnswer = isStatementTrue ? base.answer : createWrongAnswer(base.answer, random);
-
-    return {
-      questionTemplateId,
-      prompt: `True or false: ${statementFrom(base, assertedAnswer)}`,
-      expectedAnswer: isStatementTrue,
-      format,
-      roadId: level.roadId,
-      worldId: level.worldId,
-      levelId: level.levelId,
-      instinctId: level.coreInstinct.instinctId,
-      payload: {
-        ...payload,
-        assertedAnswer,
-        isStatementTrue
-      }
-    };
+    const assertedAnswer = isStatementTrue ? base.answer : createDistractors(base.answer, random)[0];
+    return { questionTemplateId, prompt: `True or false: ${statementFrom(base, assertedAnswer)}`, expectedAnswer: isStatementTrue, format, roadId: level.roadId, worldId: level.worldId, levelId: level.levelId, instinctId: level.coreInstinct.instinctId, payload: { ...payload, assertedAnswer, isStatementTrue } };
   }
 
-  return {
-    questionTemplateId,
-    prompt: base.prompt,
-    expectedAnswer: base.answer,
-    format,
-    roadId: level.roadId,
-    worldId: level.worldId,
-    levelId: level.levelId,
-    instinctId: level.coreInstinct.instinctId,
-    payload
-  };
+  return { questionTemplateId, prompt: base.prompt, expectedAnswer: base.answer, format, roadId: level.roadId, worldId: level.worldId, levelId: level.levelId, instinctId: level.coreInstinct.instinctId, payload };
 }
