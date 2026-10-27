@@ -179,8 +179,56 @@ const migrations: Migration[] = [
       CREATE INDEX idx_xp_events_player_created
       ON player_xp_events (player_id, created_at DESC);
     `
+  },
+  {
+    version: 2,
+    name: "authoritative_questions_and_round_lifecycle",
+    up: `
+      CREATE TABLE practice_rounds (
+        id TEXT PRIMARY KEY,
+        player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+        session_id TEXT NOT NULL REFERENCES play_sessions(id) ON DELETE CASCADE,
+        level_id TEXT NOT NULL,
+        target INTEGER NOT NULL DEFAULT 10,
+        state TEXT NOT NULL DEFAULT 'active' CHECK(state IN ('active', 'completed', 'abandoned')),
+        result_json TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE UNIQUE INDEX idx_active_practice_round ON practice_rounds(player_id, level_id) WHERE state = 'active';
+      ALTER TABLE rush_sessions ADD COLUMN deadline_ms INTEGER;
+      ALTER TABLE rush_sessions ADD COLUMN result_json TEXT;
+      UPDATE rush_sessions SET deadline_ms = CAST(strftime('%s', started_at) AS INTEGER) * 1000 + duration_seconds * 1000;
+      -- Pre-upgrade unfinished Rushes cannot be resumed with the new question protocol.
+      UPDATE rush_sessions SET ended_at = CURRENT_TIMESTAMP, abandoned_at = CURRENT_TIMESTAMP,
+        abandonment_reason = 'protocol_upgrade' WHERE ended_at IS NULL;
+      CREATE UNIQUE INDEX idx_active_rush_round ON rush_sessions(player_id) WHERE ended_at IS NULL;
+      CREATE TABLE issued_questions (
+        id TEXT PRIMARY KEY,
+        player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+        level_id TEXT NOT NULL,
+        mode TEXT NOT NULL CHECK(mode IN ('practice', 'rush')),
+        round_id TEXT NOT NULL,
+        question_json TEXT NOT NULL,
+        issued_at_ms INTEGER NOT NULL,
+        result_json TEXT
+      );
+      CREATE UNIQUE INDEX idx_pending_question ON issued_questions(player_id, mode, round_id) WHERE result_json IS NULL;
+      CREATE INDEX idx_recent_questions ON issued_questions(player_id, level_id, issued_at_ms DESC);
+      ALTER TABLE question_attempts ADD COLUMN issued_question_id TEXT REFERENCES issued_questions(id) ON DELETE SET NULL;
+      ALTER TABLE question_attempts ADD COLUMN practice_round_id TEXT REFERENCES practice_rounds(id) ON DELETE SET NULL;
+      CREATE UNIQUE INDEX idx_attempt_issued_question ON question_attempts(issued_question_id);
+      CREATE INDEX idx_attempt_rush_round ON question_attempts(rush_session_id);
+      CREATE INDEX idx_attempt_practice_round ON question_attempts(practice_round_id);
+      CREATE TABLE practice_format_progress (
+        player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+        level_id TEXT NOT NULL,
+        state_json TEXT NOT NULL,
+        PRIMARY KEY(player_id, level_id)
+      );
+    `
   }
 ];
+
 
 export const latestMigrationVersion = migrations.at(-1)?.version ?? 0;
 

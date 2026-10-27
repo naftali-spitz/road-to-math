@@ -1,5 +1,6 @@
+import { getMasteryEvidence } from "./mastery.js";
 import { randomUUID } from "node:crypto";
-import { roadToArithmetic } from "@road-to-math/shared";
+import { roadToArithmetic, type Level } from "@road-to-math/shared";
 import { getDatabase } from "./database.js";
 
 type PlayerRow = {
@@ -96,7 +97,7 @@ function percent(correct: number, total: number) {
   return total > 0 ? Math.round((correct / total) * 100) : 0;
 }
 
-function getProgressRecommendation(progress: LevelProgressRow | undefined, isUnlocked: boolean, hasNextLevel: boolean) {
+function getProgressRecommendation(progress: LevelProgressRow | undefined, isUnlocked: boolean, hasNextLevel: boolean, level: Level) {
   if (!isUnlocked) {
     return "Practice more";
   }
@@ -107,9 +108,9 @@ function getProgressRecommendation(progress: LevelProgressRow | undefined, isUnl
 
   if (
     progress &&
-    progress.understandingPercent >= 80 &&
-    progress.recognitionPercent >= 75 &&
-    progress.fluencyPercent < 75
+    progress.understandingPercent >= level.masteryPolicy.minUnderstandingPercent &&
+    progress.recognitionPercent >= level.masteryPolicy.minRecognitionPercent &&
+    progress.fluencyPercent < level.masteryPolicy.minFluencyPercent
   ) {
     return "Try Rush";
   }
@@ -299,6 +300,8 @@ export function getPlayerProgress(playerId: string) {
               benchmarkAnswerSeconds: level.benchmarkAnswerSeconds,
               supportedQuestionFormats: level.supportedQuestionFormats,
               isUnlocked,
+              masteryPolicy: level.masteryPolicy,
+              evidence: getMasteryEvidence(getDatabase(), playerId, level),
               masteryState: progress?.masteryState ?? "locked",
               progress: progress
                 ? {
@@ -318,7 +321,7 @@ export function getPlayerProgress(playerId: string) {
                           completedAt: bestRush.completedAt
                         }
                       : null,
-                    recommendation: getProgressRecommendation(progress, isUnlocked, hasNextLevel)
+                    recommendation: getProgressRecommendation(progress, isUnlocked, hasNextLevel, level)
                   }
                 : null
             };

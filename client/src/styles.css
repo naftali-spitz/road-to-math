@@ -384,7 +384,7 @@ dd {
 .mastery-signals {
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   margin: 0 0 14px;
 }
 
@@ -828,3 +828,17 @@ dd {
     justify-content: space-between;
   }
 }
+
+
+/* Keep the question visible on phones; respect reduced-motion preferences. */
+@media (max-width: 620px) {
+  .rush-meter { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .mastery-signals { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rush-question { transition: none; transform: none; }
+  .rush-question--correct, .rush-question--wrong { transform: none; }
+}
+button:focus-visible { outline: 3px solid #186766; outline-offset: 3px; }
+details { margin-bottom: 12px; }
+details summary { cursor: pointer; }

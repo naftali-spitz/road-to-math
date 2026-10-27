@@ -45,6 +45,8 @@ export type {
   PracticeFormatState
 } from "./practice/format-flow.js";
 export type {
+  IssuedQuestion,
+  AttemptResult,
   AnswerCheckResult,
   GeneratedQuestion,
   GeneratedQuestionPayload,

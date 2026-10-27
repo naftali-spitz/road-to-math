@@ -48,6 +48,8 @@ export type MasteryPolicy = {
   minFluencyPercent: number;
   minAttempts: number;
   minSessions: number;
+  minPracticeAttemptsPerFormat: number;
+  minRushQuestions: number;
   retention: {
     requiredForLevelUnlock: boolean;
     placeholderOnly: boolean;

@@ -6,6 +6,8 @@ export const firstBuildMasteryPolicy: MasteryPolicy = {
   minFluencyPercent: 75,
   minAttempts: 20,
   minSessions: 1,
+  minPracticeAttemptsPerFormat: 3,
+  minRushQuestions: 10,
   retention: {
     requiredForLevelUnlock: false,
     placeholderOnly: true

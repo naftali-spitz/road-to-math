@@ -9,6 +9,8 @@ import {
   completePracticeSession,
   finishRushSession,
   startRushSession,
+  startPracticeSession,
+  nextQuestion,
   submitPracticeAttempt,
   submitRushAttempt
 } from "./attempts.js";
@@ -104,9 +106,9 @@ app.post("/api/players/:playerId/attempts/practice", (request, response) => {
 
   try {
     result = submitPracticeAttempt(request.params.playerId, {
-      question: request.body?.question,
-      selectedAnswer: request.body?.selectedAnswer,
-      answerTimeMs: request.body?.answerTimeMs
+      questionId: request.body?.questionId,
+      roundId: request.body?.roundId,
+      selectedAnswer: request.body?.selectedAnswer
     });
   } catch (error) {
     sendAttemptError(error, response, "Unable to save Practice attempt.");
@@ -126,9 +128,7 @@ app.post("/api/players/:playerId/practice-sessions/complete", (request, response
 
   try {
     result = completePracticeSession(request.params.playerId, {
-      roadId: request.body?.roadId,
-      worldId: request.body?.worldId,
-      levelId: request.body?.levelId
+      roundId: request.body?.roundId
     });
   } catch (error) {
     sendAttemptError(error, response, "Unable to complete Practice session.");
@@ -172,9 +172,8 @@ app.post("/api/players/:playerId/rush-sessions/:rushSessionId/attempts", (reques
 
   try {
     result = submitRushAttempt(request.params.playerId, request.params.rushSessionId, {
-      question: request.body?.question,
-      selectedAnswer: request.body?.selectedAnswer,
-      answerTimeMs: request.body?.answerTimeMs
+      questionId: request.body?.questionId,
+      selectedAnswer: request.body?.selectedAnswer
     });
   } catch (error) {
     sendAttemptError(error, response, "Unable to save Rush attempt.");
@@ -189,32 +188,31 @@ app.post("/api/players/:playerId/rush-sessions/:rushSessionId/attempts", (reques
   response.status(201).json(result);
 });
 
-app.post("/api/players/:playerId/rush-sessions/:rushSessionId/complete", (request, response) => {
-  const result = finishRushSession(request.params.playerId, request.params.rushSessionId, true);
-
-  if (!result) {
-    response.status(404).json({ error: "Rush session not found." });
-    return;
-  }
-
-  response.json({ rushSession: result });
+// Synchronous service functions keep validation and state changes inside a DB transaction.
+app.post("/api/players/:playerId/practice-sessions", (request, response) => {
+  try {
+    const round = startPracticeSession(request.params.playerId, request.body);
+    if (!round) { response.status(404).json({ error: "Player not found." }); return; }
+    response.json({ round });
+  } catch (error) { sendAttemptError(error, response, "Unable to start Practice."); }
 });
-
-app.post("/api/players/:playerId/rush-sessions/:rushSessionId/abandon", (request, response) => {
-  const result = finishRushSession(
-    request.params.playerId,
-    request.params.rushSessionId,
-    false,
-    String(request.body?.reason ?? "player_exit")
-  );
-
-  if (!result) {
-    response.status(404).json({ error: "Rush session not found." });
-    return;
-  }
-
-  response.json({ rushSession: result });
+app.post("/api/players/:playerId/questions", (request, response) => {
+  try {
+    const question = nextQuestion(request.params.playerId, request.body?.mode, request.body?.roundId);
+    if (!question) { response.status(404).json({ error: "Session not found." }); return; }
+    response.json({ question });
+  } catch (error) { sendAttemptError(error, response, "Unable to load question."); }
 });
+for (const action of ["complete", "abandon"] as const) {
+  app.post(`/api/players/:playerId/rush-sessions/:rushSessionId/${action}`, (request, response) => {
+    try {
+      const result = finishRushSession(request.params.playerId, request.params.rushSessionId,
+        action === "complete", request.body?.reason);
+      if (!result) { response.status(404).json({ error: "Rush session not found." }); return; }
+      response.json({ rushSession: result });
+    } catch (error) { sendAttemptError(error, response, "Unable to finish Rush."); }
+  });
+}
 
 app.use("/api", (_request, response) => {
   response.status(404).json({ error: "API route not found." });

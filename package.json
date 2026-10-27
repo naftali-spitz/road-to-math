@@ -20,9 +20,14 @@
     "reset:db": "node scripts/reset-db.mjs",
     "start": "npm run start --workspace server",
     "start:server": "npm run start --workspace server",
-    "preview": "npm run preview --workspace client"
+    "preview": "npm run preview --workspace client",
+    "test:e2e": "npm run build && playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "1.58.2",
     "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=22.12 <23"
   }
 }

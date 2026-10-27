@@ -177,11 +177,11 @@ function statementFrom(base: BaseQuestion, answer: AnswerValue) {
   }
 
   if (typeof addend === "number" && base.sourceTemplateId.includes("missing-number")) {
-    return `${rendered} plus ${addend} equals ${Number(rendered) + addend}`;
+    return `${rendered} plus ${addend} equals ${Number(missing) + addend}`;
   }
 
   if (typeof factor === "number" && base.sourceTemplateId.includes("factor")) {
-    return `${factor} times ${rendered} equals ${factor * Number(rendered)}`;
+    return `${factor} times ${rendered} equals ${factor * Number(missing)}`;
   }
 
   if (typeof groups === "number" && typeof size === "number" && base.sourceTemplateId.includes("multiplication-groups")) {
@@ -251,7 +251,7 @@ function countingStep(random: RandomSource): BaseQuestion {
 function wholeNumberLine(random: RandomSource): BaseQuestion {
   if (random.nextBoolean()) {
     const start = random.nextInt(0, 20);
-    const move = random.nextBoolean() ? random.nextInt(1, 8) : -random.nextInt(1, Math.min(8, start));
+    const move = start === 0 || random.nextBoolean() ? random.nextInt(1, 8) : -random.nextInt(1, Math.min(8, start));
     return lineMoveQuestion("whole-number-line-move", start, move);
   }
 
