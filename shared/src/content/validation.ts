@@ -44,6 +44,10 @@ function validateMasteryPolicy(
     issues.push({ path, message: "minSessions must be present and greater than 0." });
   }
 
+  for (const field of ["minPracticeAttemptsPerFormat", "minRushQuestions"] as const) {
+    if (!hasPositiveInteger(masteryPolicy[field])) issues.push({ path, message: `${field} must be a positive integer.` });
+  }
+
   if (!masteryPolicy.retention || masteryPolicy.retention.placeholderOnly !== true) {
     issues.push({ path, message: "retention placeholder must be present for the first build." });
   }

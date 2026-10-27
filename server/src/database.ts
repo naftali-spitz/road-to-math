@@ -12,13 +12,20 @@ const requiredTables = [
   "question_attempts",
   "rush_sessions",
   "level_progress",
-  "player_xp_events"
+  "player_xp_events",
+  "practice_rounds",
+  "issued_questions",
+  "practice_format_progress"
 ];
 
 const requiredIndexes = [
   "idx_attempts_player_level_created",
   "idx_attempts_player_instinct_created",
-  "idx_attempts_player_mode_created"
+  "idx_attempts_player_mode_created",
+  "idx_active_practice_round",
+  "idx_active_rush_round",
+  "idx_pending_question",
+  "idx_attempt_issued_question"
 ];
 
 export function getDatabase() {

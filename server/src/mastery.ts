@@ -97,7 +97,7 @@ function calculateRecognition(db: Database.Database, playerId: string, level: Le
   const byFormat = new Map(rows.map((row) => [row.questionFormat, row]));
   const formatPercents = level.supportedQuestionFormats.map((format) => {
     const row = byFormat.get(format);
-    return row ? percent(row.correct, row.total) : 0;
+    return row && row.total >= level.masteryPolicy.minPracticeAttemptsPerFormat ? percent(row.correct, row.total) : 0;
   });
 
   return Math.min(...formatPercents);
@@ -125,7 +125,7 @@ function completedRushes(db: Database.Database, playerId: string, levelId: strin
 function calculateFluency(db: Database.Database, playerId: string, level: Level) {
   const benchmarkMs = level.benchmarkAnswerSeconds * 1000;
   const qualifyingRushes = completedRushes(db, playerId, level.levelId).filter(
-    (rush) => rush.averageAnswerTimeMs !== null && rush.averageAnswerTimeMs <= benchmarkMs
+    (rush) => rush.totalQuestions >= level.masteryPolicy.minRushQuestions && rush.averageAnswerTimeMs !== null && rush.averageAnswerTimeMs <= benchmarkMs
   );
   const accuracies = qualifyingRushes.map((rush) => percent(rush.correctCount, rush.totalQuestions));
 
@@ -135,7 +135,7 @@ function calculateFluency(db: Database.Database, playerId: string, level: Level)
 function hasExpressPass(db: Database.Database, playerId: string, level: Level) {
   const benchmarkMs = level.benchmarkAnswerSeconds * 1000;
   const qualifyingAccuracies = completedRushes(db, playerId, level.levelId)
-    .filter((rush) => rush.averageAnswerTimeMs !== null && rush.averageAnswerTimeMs <= benchmarkMs)
+    .filter((rush) => rush.totalQuestions >= level.masteryPolicy.minRushQuestions && rush.averageAnswerTimeMs !== null && rush.averageAnswerTimeMs <= benchmarkMs)
     .map((rush) => percent(rush.correctCount, rush.totalQuestions))
     .sort((left, right) => right - left);
 
@@ -178,6 +178,39 @@ function unlockNextLevel(db: Database.Database, playerId: string, currentLevel: 
   return nextLevel.levelId;
 }
 
+export function getMasteryEvidence(db: Database.Database, playerId: string, level: Level) {
+  const counts = db.prepare(`SELECT COUNT(*) AS attempts, COUNT(DISTINCT session_id) AS sessions
+    FROM question_attempts WHERE player_id = ? AND level_id = ?`).get(playerId, level.levelId) as { attempts: number; sessions: number };
+  const rows = db.prepare(`SELECT question_type AS format, COUNT(*) AS n FROM question_attempts
+    WHERE player_id = ? AND level_id = ? AND mode = 'practice' GROUP BY question_type`)
+    .all(playerId, level.levelId) as { format: string; n: number }[];
+  const byFormat = Object.fromEntries(rows.map(r => [r.format, r.n]));
+  const requiredSkills = roadToArithmetic.worlds.flatMap(w => w.levels)
+    .filter(l => l.generatorKey !== "arithmeticRoadblock").map(l => l.generatorKey);
+  const coveredRows = level.generatorKey === "arithmeticRoadblock"
+    ? db.prepare(`SELECT DISTINCT json_extract(question_payload_json, '$.generatorKey') AS skill FROM question_attempts
+      WHERE player_id = ? AND level_id = ? AND issued_question_id IS NOT NULL`).all(playerId, level.levelId) as { skill: string }[] : [];
+  const covered = new Set(coveredRows.map(r => r.skill));
+  const missingSkills = level.generatorKey === "arithmeticRoadblock" ? requiredSkills.filter(skill => !covered.has(skill)) : [];
+  const missingRequirements: string[] = [];
+  const policy = level.masteryPolicy;
+  if (counts.attempts < policy.minAttempts) missingRequirements.push(`${policy.minAttempts - counts.attempts} more attempts`);
+  if (counts.sessions < policy.minSessions) missingRequirements.push(`${policy.minSessions - counts.sessions} more play sessions`);
+  for (const format of level.supportedQuestionFormats) {
+    const needed = policy.minPracticeAttemptsPerFormat - (byFormat[format] ?? 0);
+    if (needed > 0) missingRequirements.push(`${needed} more Practice attempts in ${format}`);
+  }
+  if (missingSkills.length) missingRequirements.push(`Roadblock: ${missingSkills.length} skills still to cover`);
+  const hasMinimumEvidence = missingRequirements.length === 0;
+  if (calculateUnderstanding(db, playerId, level.levelId) < policy.minUnderstandingPercent)
+    missingRequirements.push(`Understanding must reach ${policy.minUnderstandingPercent}%`);
+  if (calculateRecognition(db, playerId, level) < policy.minRecognitionPercent)
+    missingRequirements.push(`Recognition must reach ${policy.minRecognitionPercent}% in every format`);
+  if (calculateFluency(db, playerId, level) < policy.minFluencyPercent)
+    missingRequirements.push(`Fluency: complete a Rush with at least ${policy.minRushQuestions} answers, ${policy.minFluencyPercent}% accuracy and average time ≤${level.benchmarkAnswerSeconds}s`);
+  return { ...counts, byFormat, missingSkills, missingRequirements, hasMinimumEvidence };
+}
+
 export function recomputeLevelProgress(db: Database.Database, playerId: string, levelId: string) {
   const level = findLevel(levelId);
 
@@ -203,12 +236,14 @@ export function recomputeLevelProgress(db: Database.Database, playerId: string, 
   const understanding = calculateUnderstanding(db, playerId, level.levelId);
   const recognition = calculateRecognition(db, playerId, level);
   const fluency = calculateFluency(db, playerId, level);
+  const evidence = getMasteryEvidence(db, playerId, level);
   const isStandardMastered =
+    evidence.hasMinimumEvidence &&
     understanding >= level.masteryPolicy.minUnderstandingPercent &&
     recognition >= level.masteryPolicy.minRecognitionPercent &&
     fluency >= level.masteryPolicy.minFluencyPercent;
   const expressPass = hasExpressPass(db, playerId, level);
-  const mastered = isStandardMastered || expressPass;
+  const mastered = isStandardMastered || (expressPass && evidence.missingSkills.length === 0);
   const unlockedNextLevelId = mastered ? unlockNextLevel(db, playerId, level) : null;
   const newlyMastered = mastered && existingProgress.masteredAt === null;
 
@@ -217,6 +252,7 @@ export function recomputeLevelProgress(db: Database.Database, playerId: string, 
       UPDATE level_progress
       SET
         mastery_state = CASE
+          WHEN mastery_state = 'goldMastered' THEN 'goldMastered'
           WHEN ? = 1 THEN 'mastered'
           WHEN mastery_state IN (${unlockableStates.map(() => "?").join(", ")}) THEN mastery_state
           ELSE 'unlocked'
