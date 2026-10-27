@@ -68,6 +68,12 @@ After the Arithmetic Roadblock, the next planned content direction is **Phase 1:
 - Shared TypeScript contracts, content, question generation, validation, and answer checking in `shared`
 - npm workspaces
 
+## Runtime and stability
+
+Use **Node 22.12 or later within Node 22** (`nvm use` reads `.nvmrc`). The SQLite native module must be installed under the selected runtime.
+
+See [Phase 1 stability](docs/phase-1-stability.md) for mastery defaults, retry behavior, browser tests and existing-player upgrade notes.
+
 ## First Run
 
 Install dependencies:
@@ -119,6 +125,8 @@ POST /api/players
 GET  /api/players/:playerId
 GET  /api/players/:playerId/progress
 POST /api/players/:playerId/sessions
+POST /api/players/:playerId/practice-sessions
+POST /api/players/:playerId/questions
 POST /api/players/:playerId/attempts/practice
 POST /api/players/:playerId/practice-sessions/complete
 POST /api/players/:playerId/rush-sessions
@@ -156,6 +164,7 @@ npm run dev:client
 npm run dev:server
 npm run preview
 npm test
+npm run test:e2e
 npm run validate:content
 npm run sample:questions
 npm run reset:db
