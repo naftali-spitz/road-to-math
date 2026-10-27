@@ -41,6 +41,10 @@ export function checkAnswer(
   question: GeneratedQuestion,
   submittedAnswer: AnswerValue | string | null | undefined
 ): AnswerCheckResult {
+  if (submittedAnswer === null || submittedAnswer === undefined || String(submittedAnswer).trim() === "") {
+    return { isCorrect: false, normalizedAnswer: "", expectedAnswer: normalize(question.expectedAnswer) };
+  }
+
   const normalizedAnswer =
     question.format === "trueFalse"
       ? normalizeBooleanAnswer(submittedAnswer)

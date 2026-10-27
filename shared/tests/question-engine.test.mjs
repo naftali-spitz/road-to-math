@@ -259,3 +259,38 @@ test("answer checking accepts simple typed equivalents centrally", () => {
   const trueFalseQuestion = generateQuestion(levels[0], { format: "trueFalse", seed: "true-false-equivalent" });
   assert.equal(checkAnswer(trueFalseQuestion, trueFalseQuestion.expectedAnswer ? "t" : "f").isCorrect, true);
 });
+
+
+test("empty numeric submissions never count as zero", () => {
+  const question = { format: "solve", expectedAnswer: 0 };
+  for (const answer of ["", "   ", null, undefined]) {
+    assert.equal(checkAnswer(question, answer).isCorrect, false);
+  }
+  assert.equal(checkAnswer(question, "0").isCorrect, true);
+});
+
+test("whole-number line moves cannot cross below zero", () => {
+  const level = levels.find(level => level.generatorKey === "wholeNumberLine");
+  for (let seed = 0; seed < 3000; seed++) {
+    const question = generateQuestion(level, { format: "solve", seed });
+    assert.ok(question.expectedAnswer >= 0, question.prompt);
+  }
+});
+
+test("missing-number true/false keys agree with the displayed arithmetic", () => {
+  let checked = 0;
+  for (const level of levels) {
+    for (let seed = 0; seed < 500; seed++) {
+      const question = generateQuestion(level, { format: "trueFalse", seed });
+      const addition = question.prompt.match(/^True or false: (-?\d+) plus (-?\d+) equals (-?\d+)$/);
+      const multiplication = question.prompt.match(/^True or false: (-?\d+) times (-?\d+) equals (-?\d+)$/);
+      if (addition || multiplication) {
+        const [, a, b, result] = (addition || multiplication).map(Number);
+        const actual = addition ? a + b === result : a * b === result;
+        assert.equal(question.expectedAnswer, actual, question.prompt);
+        checked++;
+      }
+    }
+  }
+  assert.ok(checked > 500, "Exercise both true and false displayed statements across levels");
+});
